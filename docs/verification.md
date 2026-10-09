@@ -2,11 +2,11 @@
 
 ## Current state
 - Milestone: M1 backend P0 done (API + real-MongoDB tests); RN app not started.
-- Last known good commit: 05a0b6e (backend + docs baseline).
+- Last known good commit: 2df3161 (+ debug build recorded in B2).
 - Implemented (backend only): AUTH-001/002/003, TASK-001..006, API-001, DATA-001, SORT-001, FILT-001 (API), SEC-001 (partial: rate limiter configured but untested).
 - Verified: API-001, DATA-001 (evidence §B1).
-- Blocking: no system image / AVD yet (downloading cmdline-tools + image); Java default is 1.8 (use Android Studio JBR for Gradle).
-- Next three actions: (1) RN CLI scaffold + Gradle debug build (JBR JDK); (2) auth/task screens against the API; (3) reference APK screenshots once emulator image is installed.
+- Blocking: none. Gradle needs JAVA_HOME = Android Studio JBR; emulator must be the Android 35 AVD `ref35`.
+- Next three actions: (1) theme tokens + auth/task screens; (2) install on ref35 and run register-to-delete flow against the API; (3) sample palette/type from reference screenshots.
 - Known unverified claims: all frontend/app requirements, rate limiting, emulator/visual/a11y, release build.
 
 ## Reference APK audit (2026-10-09) — `Mytasks-release.apk`
@@ -35,3 +35,9 @@ Command: `cd backend && npx vitest run --testTimeout=60000 --hookTimeout=300000`
 - Mutation sanity check: removing `userId` from the ownership query made "user B cannot..." fail (`expected 200 to be 404`); restored, test passes. So the isolation test can fail.
 
 Limitations: not tested - rate limiter, CORS, production TLS, offline/5xx client behaviour, app UI. The in-memory mongod is a real MongoDB but a single node; no replica-set/Atlas behaviour verified. `npm` reported `argon2` install script not run (allow-scripts); argon2 loaded and hashed correctly from its prebuilt binary in the tests.
+
+## B2. Android debug build (2026-10-09)
+Command: `cd app/android && JAVA_HOME=<Android Studio jbr> ANDROID_HOME=<sdk> ./gradlew.bat assembleDebug -PreactNativeArchitectures=x86_64` -> **BUILD SUCCESSFUL in 8m 40s** (87 tasks), output `app/android/app/build/outputs/apk/debug/app-debug.apk` (38,254,691 bytes).
+- First attempt failed after 23m on `Connection reset` downloading `react-android-0.87.1-debug.aar` (network); retry succeeded from the Gradle cache.
+- Scope: x86_64 only. This proves the unmodified RN 0.87.1 template compiles; it does NOT prove the app runs (not installed/launched yet) and contains no task features yet.
+- Emulator note: Android 36.1 image crashes SurfaceFlinger (`hasReadColorBufferDma` assertion) under every GPU mode on this host; use the Android 35 AVD `ref35`.
