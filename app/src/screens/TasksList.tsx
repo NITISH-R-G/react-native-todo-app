@@ -2,12 +2,14 @@ import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
 import { Button, Dialog, Icon, Portal } from 'react-native-paper';
 import { describeError } from '../api/errors';
+import { applyFilters, NO_FILTERS } from '../domain/filters';
 import { groupTasks } from '../domain/grouping';
 import type { Task } from '../domain/types';
 import { useAppTheme } from '../design/theme';
 import { shape, spacing } from '../design/tokens';
 import { useTasks } from '../state/tasksStore';
 import { AppText } from '../ui/primitives';
+import { FilterBar } from '../ui/FilterBar';
 import { TaskCard } from '../ui/TaskCard';
 
 /** Task list with explicit loading / error / empty states, pull-to-refresh and delete confirmation. */
@@ -21,10 +23,11 @@ export function TasksList({
   onError: (msg: string) => void;
 }) {
   const { colors } = useAppTheme();
-  const { tasks, status, error, busy, load, setCompleted, remove } = useTasks();
+  const { tasks, status, error, busy, filters, load, setCompleted, remove, setFilters } = useTasks();
   const [confirm, setConfirm] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const sections = useMemo(() => groupTasks(tasks), [tasks]);
+  const filtered = useMemo(() => applyFilters(tasks, filters, new Date()), [tasks, filters]);
+  const sections = useMemo(() => groupTasks(filtered), [filtered]);
 
   const toggle = async (t: Task) => {
     try {
@@ -85,21 +88,36 @@ export function TasksList({
   }
   return (
     <>
-      <SectionList
-        sections={sections}
-        keyExtractor={(t) => t.id}
-        contentContainerStyle={styles.list}
-        stickySectionHeadersEnabled={false}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={() => load({ silent: true })} colors={[colors.primary]} />}
-        renderSectionHeader={({ section }) => (
-          <AppText variant="titleLarge" tone={section.key === 'overdue' ? 'error' : 'primary'} accessibilityRole="header" style={styles.section}>
-            {section.title}
+      <FilterBar />
+      {filtered.length === 0 ? (
+        <View style={styles.center} accessibilityLiveRegion="polite">
+          <View style={[styles.badge, { backgroundColor: colors.secondaryContainer }]}>
+            <Icon source="filter-off-outline" size={36} color={colors.onSecondaryContainer} />
+          </View>
+          <AppText variant="titleMedium" tone="onSurfaceVariant" style={styles.msg} testID="no-matches">
+            No tasks match your filters.
           </AppText>
-        )}
-        renderItem={({ item }) => (
-          <TaskCard task={item} busy={!!busy[item.id]} onToggle={() => toggle(item)} onEdit={() => onEdit(item)} onDelete={() => setConfirm(item)} />
-        )}
-      />
+          <Button mode="contained-tonal" onPress={() => setFilters(NO_FILTERS)} style={styles.retry} testID="clear-filters">
+            Clear filters
+          </Button>
+        </View>
+      ) : (
+        <SectionList
+          sections={sections}
+          keyExtractor={(t) => t.id}
+          contentContainerStyle={styles.list}
+          stickySectionHeadersEnabled={false}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={() => load({ silent: true })} colors={[colors.primary]} />}
+          renderSectionHeader={({ section }) => (
+            <AppText variant="titleLarge" tone={section.key === 'overdue' ? 'error' : 'primary'} accessibilityRole="header" style={styles.section}>
+              {section.title}
+            </AppText>
+          )}
+          renderItem={({ item }) => (
+            <TaskCard task={item} busy={!!busy[item.id]} onToggle={() => toggle(item)} onEdit={() => onEdit(item)} onDelete={() => setConfirm(item)} />
+          )}
+        />
+      )}
       <Portal>
         <Dialog visible={!!confirm} onDismiss={() => !deleting && setConfirm(null)} style={{ borderRadius: shape.sheet }}>
           <Dialog.Icon icon="delete-outline" />

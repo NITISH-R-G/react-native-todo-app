@@ -1,3 +1,4 @@
+import { isOverdue } from './filters';
 import type { Task } from './types';
 
 export interface TaskSection {
@@ -20,7 +21,7 @@ export function groupTasks(tasks: Task[], now: Date = new Date()): TaskSection[]
   const completed: Task[] = [];
   for (const t of tasks) {
     if (t.completed) completed.push(t);
-    else if (t.overdue) overdue.push(t);
+    else if (isOverdue(t, now)) overdue.push(t);
     else if (sameDay(new Date(t.startAt), now) || (t.deadline && sameDay(new Date(t.deadline), now))) today.push(t);
     else upcoming.push(t);
   }

@@ -24,6 +24,7 @@ export interface TaskInput {
   startAt: string;
   deadline: string | null;
   priority: Priority;
+  tags: string[];
 }
 
 export interface User {

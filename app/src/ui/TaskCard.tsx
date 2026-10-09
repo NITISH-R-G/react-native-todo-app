@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { Icon, Menu } from 'react-native-paper';
+import { categoryOf, displayCategory, isOverdue } from '../domain/filters';
 import { formatWhen } from '../domain/grouping';
 import type { Task } from '../domain/types';
 import { useAppTheme } from '../design/theme';
@@ -94,8 +95,9 @@ export function TaskCard({
         ) : null}
         <View style={styles.chips}>
           <Chip icon="flag" label={task.priority[0]!.toUpperCase() + task.priority.slice(1)} />
+          <Chip icon="tag-outline" label={displayCategory(categoryOf(task))} />
           <Chip icon="calendar-start" label={formatWhen(task.startAt)} />
-          {task.deadline ? <Chip icon="calendar-alert" label={`Due ${formatWhen(task.deadline)}`} tone={task.overdue ? 'error' : undefined} /> : null}
+          {task.deadline ? <Chip icon="calendar-alert" label={`Due ${formatWhen(task.deadline)}`} tone={isOverdue(task, new Date()) ? 'error' : undefined} /> : null}
         </View>
       </Pressable>
       <Menu

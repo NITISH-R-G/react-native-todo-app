@@ -4,12 +4,14 @@ import { Button, HelperText, IconButton, Switch, TextInput } from 'react-native-
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ApiError, describeError } from '../api/errors';
+import { availableCategories, categoryOf, DEFAULT_CATEGORY, withCategory } from '../domain/filters';
 import { PRIORITIES, type Priority, type TaskInput } from '../domain/types';
 import { hasErrors, validateTask, type FieldErrors } from '../domain/validation';
 import type { RootStackParamList } from '../navigation/types';
 import { useAppTheme } from '../design/theme';
 import { shape, spacing, touchTarget } from '../design/tokens';
 import { useTasks } from '../state/tasksStore';
+import { CategoryPicker } from '../ui/CategoryPicker';
 import { ConnectedButtonGroup, type Option } from '../ui/ConnectedButtonGroup';
 import { DateTimeRow } from '../ui/DateTimeRow';
 import { AppText, LargeTitle, SectionLabel, TonalSurface } from '../ui/primitives';
@@ -23,16 +25,23 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
   const { colors } = useAppTheme();
   const taskId = route.params?.taskId;
   const existing = useTasks((s) => s.tasks.find((t) => t.id === taskId));
-  const { create, update } = useTasks();
+  const { create, update, load } = useTasks();
+  const allTasks = useTasks((s) => s.tasks);
+  const categories = availableCategories(allTasks);
 
   const [title, setTitle] = useState(existing?.title ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
   const [priority, setPriority] = useState<Priority>(existing?.priority ?? 'medium');
+  const [category, setCategory] = useState(existing ? categoryOf(existing) : DEFAULT_CATEGORY);
+  // True once the server says this task no longer exists (deleted elsewhere): saving is pointless.
+  const [gone, setGone] = useState(!!taskId && !existing);
   const [startAt, setStartAt] = useState(existing ? new Date(existing.startAt) : new Date());
   const [hasDeadline, setHasDeadline] = useState(!!existing?.deadline);
   const [deadline, setDeadline] = useState(existing?.deadline ? new Date(existing.deadline) : hourFrom(new Date()));
   const [errors, setErrors] = useState<Errors>({});
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(
+    taskId && !existing ? 'This task no longer exists. It may have been deleted. Go back to see your current list.' : null,
+  );
   const [pending, setPending] = useState(false);
   const inFlight = useRef(false);
 
@@ -57,6 +66,7 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
       startAt: d.startAt.toISOString(),
       deadline: d.deadline ? d.deadline.toISOString() : null,
       priority: d.priority,
+      tags: withCategory(existing?.tags ?? [], category),
     };
     inFlight.current = true;
     setPending(true);
@@ -65,8 +75,15 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
       else await create(input);
       navigation.goBack();
     } catch (e) {
-      if (e instanceof ApiError) setErrors({ ...e.fieldErrors } as Errors);
-      setFormError(describeError(e));
+      if (e instanceof ApiError && e.status === 404) {
+        // Deleted (or never owned): say so, refresh the list, and stop offering Save.
+        setGone(true);
+        setFormError('This task no longer exists. It may have been deleted. Go back to see your current list.');
+        load({ silent: true });
+      } else {
+        if (e instanceof ApiError) setErrors({ ...e.fieldErrors } as Errors);
+        setFormError(describeError(e));
+      }
     } finally {
       inFlight.current = false;
       setPending(false);
@@ -83,7 +100,7 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
           icon="check"
           onPress={save}
           loading={pending}
-          disabled={pending}
+          disabled={pending || gone}
           contentStyle={styles.saveContent}
           accessibilityLabel={taskId ? 'Save task' : 'Add task'}
           testID="save-task">
@@ -135,6 +152,11 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
           <TonalSurface style={styles.group}>
             <ConnectedButtonGroup label="Priority" options={options} value={priority} onChange={setPriority} />
           </TonalSurface>
+
+          <SectionLabel>Category</SectionLabel>
+          <View style={styles.categoryWrap}>
+            <CategoryPicker value={category} categories={categories} onChange={setCategory} disabled={pending} />
+          </View>
 
           <SectionLabel>Schedule & deadline</SectionLabel>
           <View style={styles.rows}>
@@ -203,6 +225,7 @@ const styles = StyleSheet.create({
   scroll: { padding: spacing.lg, paddingBottom: spacing.xxl * 2 },
   group: { marginTop: spacing.sm },
   outline: { borderRadius: shape.large },
+  categoryWrap: { marginTop: spacing.sm, marginHorizontal: -spacing.lg },
   rows: { gap: spacing.sm, marginTop: spacing.sm },
   switchRow: { flexDirection: 'row', alignItems: 'center', padding: spacing.lg, borderRadius: shape.large, minHeight: touchTarget + 16 },
   formError: { padding: spacing.md, borderRadius: shape.large, marginTop: spacing.lg },

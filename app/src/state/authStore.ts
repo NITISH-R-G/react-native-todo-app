@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { loginRequest, registerRequest } from '../api/auth';
-import { dropSession, getSession, restoreSession, setSession, setSessionLostHandler } from '../api/client';
+import { beginSession, dropSession, getSession, restoreSession, setSessionLostHandler } from '../api/client';
 import { ApiError } from '../api/errors';
 import { fetchTasks } from '../api/tasks';
 import type { Session, User } from '../domain/types';
@@ -20,7 +20,7 @@ interface AuthState {
 
 export const useAuth = create<AuthState>((set) => {
   const enter = async (s: Session) => {
-    await setSession(s);
+    await beginSession(s);
     set({ status: 'signedIn', user: s.user, notice: null });
   };
   setSessionLostHandler(() =>

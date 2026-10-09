@@ -2,13 +2,13 @@ import { Router } from "express";
 import { isValidObjectId, type HydratedDocument } from "mongoose";
 import { Task, type TaskDoc } from "../models/Task.js";
 import { HttpError } from "../errors.js";
-import { compareSmart, type Rankable } from "../domain/sort.js";
+import { compareSmart, isOverdue, type Rankable } from "../domain/sort.js";
 import { createTaskSchema, listQuerySchema, updateTaskSchema } from "../validation.js";
 
 type TaskHydrated = HydratedDocument<TaskDoc>;
 
 function toDto(t: TaskHydrated, now: Date) {
-  const overdue = !t.completed && t.deadline != null && t.deadline.getTime() < now.getTime();
+  const overdue = isOverdue({ completed: t.completed, deadline: t.deadline ?? null }, now);
   return {
     id: t.id as string,
     title: t.title,

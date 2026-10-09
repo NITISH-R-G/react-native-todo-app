@@ -8,6 +8,9 @@ const TIMEOUT_MS = 15000;
 let current: Session | null = null;
 let onSessionLost: (() => void) | null = null;
 let refreshing: Promise<Session> | null = null;
+/** Bumps on sign-in and sign-out (not on token refresh) so results from a previous session can be discarded. */
+let epoch = 0;
+export const getEpoch = (): number => epoch;
 
 /** Registers a callback fired when the session can no longer be refreshed (expired/revoked). */
 export function setSessionLostHandler(fn: (() => void) | null): void {
@@ -19,7 +22,14 @@ export async function setSession(s: Session): Promise<void> {
   await saveSession(s);
 }
 
+/** Starts a brand-new session (sign-in / registration). */
+export async function beginSession(s: Session): Promise<void> {
+  epoch += 1;
+  await setSession(s);
+}
+
 export async function dropSession(): Promise<void> {
+  epoch += 1;
   current = null;
   await clearSession();
 }
@@ -57,12 +67,14 @@ async function rawRequest(method: string, path: string, body: unknown, token: st
 async function parse<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T;
   let json: unknown = null;
+  let parsed = true;
   try {
     json = await res.json();
   } catch {
-    // non-JSON body: fall through with null
+    parsed = false; // e.g. an HTML error page from a proxy
   }
   if (!res.ok) throw fromResponseBody(res.status, json);
+  if (!parsed) throw new ApiError('http', 'The server sent an unexpected response. Please try again.', res.status, 'bad_response');
   return json as T;
 }
 

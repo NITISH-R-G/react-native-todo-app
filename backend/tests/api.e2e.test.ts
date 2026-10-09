@@ -226,3 +226,43 @@ describe("task lifecycle and persistence (TASK-001..006, DATA-001)", () => {
     expect((await api.get("/tasks?sort=bogus").set(bearer(token))).status).toBe(400);
   });
 });
+
+describe("categories (tags), filtering and sorting together (CAT-001, FILT-001, SORT-001)", () => {
+  it("persists a category, composes filters, and orders overdue > priority-lead > no-deadline > completed", async () => {
+    const { token } = await signup();
+    const post = (b: object) => api.post("/tasks").set(bearer(token)).send(b).then((r) => r.body.task as { id: string; title: string });
+    const hours = (n: number) => new Date(Date.now() + n * 3_600_000).toISOString();
+    const nodl = await post({ title: "no-deadline", priority: "low", tags: ["home"] });
+    const lateLow = await post({ title: "overdue-low", priority: "low", startAt: hours(-48), deadline: hours(-24), tags: ["work"] });
+    const lateHigh = await post({ title: "overdue-high", priority: "high", startAt: hours(-48), deadline: hours(-2), tags: ["work"] });
+    const soon = await post({ title: "soon-medium", priority: "medium", deadline: hours(3), tags: ["work"] });
+    const done = await post({ title: "done-work", priority: "high", tags: ["work"] });
+    await api.patch(`/tasks/${done.id}`).set(bearer(token)).send({ completed: true });
+    expect([nodl, lateLow, lateHigh, soon].every(Boolean)).toBe(true);
+
+    const titles = async (qs: string) => (await api.get(`/tasks${qs}`).set(bearer(token))).body.tasks.map((t: { title: string }) => t.title);
+    expect(await titles("")).toEqual(["overdue-high", "overdue-low", "soon-medium", "no-deadline", "done-work"]);
+    // filters compose (AND) and keep the sort order
+    expect(await titles("?tag=work&status=active")).toEqual(["overdue-high", "overdue-low", "soon-medium"]);
+    expect(await titles("?tag=work&status=completed")).toEqual(["done-work"]);
+    expect(await titles("?tag=work&priority=high")).toEqual(["overdue-high", "done-work"]);
+    expect(await titles("?tag=home")).toEqual(["no-deadline"]);
+    // category survives a fresh read straight from the database and can be changed by PATCH
+    const raw = await Task.findById(soon.id).lean();
+    expect(raw?.tags).toEqual(["work"]);
+    const moved = await api.patch(`/tasks/${soon.id}`).set(bearer(token)).send({ tags: ["Home"] });
+    expect(moved.body.task.tags).toEqual(["home"]);
+    expect(await titles("?tag=home&status=active")).toEqual(["soon-medium", "no-deadline"]);
+    // sort=deadline is nearest-first with no-deadline last
+    expect(await titles("?status=active&sort=deadline")).toEqual(["overdue-low", "overdue-high", "soon-medium", "no-deadline"]);
+  });
+
+  it("another user cannot change a task's category", async () => {
+    const a = await signup("a@example.com");
+    const b = await signup("b@example.com");
+    const t = await api.post("/tasks").set(bearer(a.token)).send({ title: "mine", tags: ["work"] });
+    const res = await api.patch(`/tasks/${t.body.task.id}`).set(bearer(b.token)).send({ tags: ["stolen"] });
+    expect(res.status).toBe(404);
+    expect((await Task.findById(t.body.task.id).lean())?.tags).toEqual(["work"]);
+  });
+});

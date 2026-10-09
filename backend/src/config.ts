@@ -28,7 +28,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     mongoUri: need("MONGODB_URI"),
     accessSecret,
     refreshSecret,
-    accessTtl: "15m",
+    accessTtl: env.JWT_ACCESS_TTL ?? "15m",
     refreshTtl: "30d",
     corsOrigins: (env.CORS_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     authRateLimit: { windowMs: 15 * 60 * 1000, max: Number(env.AUTH_RATE_LIMIT_MAX ?? 20) },
