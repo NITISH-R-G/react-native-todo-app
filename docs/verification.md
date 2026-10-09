@@ -2,12 +2,12 @@
 
 ## Current state
 - Milestone: M1 backend P0 done (API + real-MongoDB tests); RN app not started.
-- Last known good commit: none (repo just initialised).
+- Last known good commit: 05a0b6e (backend + docs baseline).
 - Implemented (backend only): AUTH-001/002/003, TASK-001..006, API-001, DATA-001, SORT-001, FILT-001 (API), SEC-001 (partial: rate limiter configured but untested).
 - Verified: API-001, DATA-001 (evidence §B1).
 - Blocking: no system image / AVD yet (downloading cmdline-tools + image); Java default is 1.8 (use Android Studio JBR for Gradle).
-- Next three actions: (1) backend auth + task API with real-MongoDB integration tests; (2) RN CLI scaffold + debug build; (3) reference APK screenshots on emulator.
-- Known unverified claims: everything.
+- Next three actions: (1) RN CLI scaffold + Gradle debug build (JBR JDK); (2) auth/task screens against the API; (3) reference APK screenshots once emulator image is installed.
+- Known unverified claims: all frontend/app requirements, rate limiting, emulator/visual/a11y, release build.
 
 ## Reference APK audit (2026-10-09) — `Mytasks-release.apk`
 Evidence kept in `docs/evidence/reference-apk/` (manifest only).
