@@ -1,7 +1,7 @@
 # Design system
 
 Evidence: screenshots + uiautomator dumps in `docs/evidence/reference-apk/` (Android 35 x86_64 emulator, 1080x2400, light theme, "Auto" theme mode, dynamic colour not verified on this emulator).
-Labels: OBSERVED = seen in screenshot/dump; INFERRED; UNKNOWN. Hex values are NOT recorded: none were sampled yet, so they are UNKNOWN.
+Labels: OBSERVED = seen in screenshot/dump; INFERRED; UNKNOWN. Colours below were pixel-sampled (SAMPLED) from the screenshots; type scale, dp radii and motion remain UNKNOWN.
 
 ## Reference screens (OBSERVED)
 | # | Screen | Observed content |
@@ -21,3 +21,7 @@ Labels: OBSERVED = seen in screenshot/dump; INFERRED; UNKNOWN. Hex values are NO
 - Not reproduced from the reference on purpose: self-update, voice task, backup/export, repeat/reminder (no assignment requirement); will be listed under optional if time permits.
 - Added beyond the reference because the assignment requires them: Register/Login screens, deadline field, server-backed list.
 - UNKNOWN until sampled: exact palette, type scale, radii in dp, motion curves/durations.
+
+## Sampled colours (SAMPLED from reference screenshots, light theme)
+primary/FAB/Next button #0061A4 · primaryContainer (icon tile, Today chip) #D1E4FF · background/content sheet #F8F9FF · screen top background #F0F4F8 · bottom bar #E5ECF4 · nav active pill / selected segment (secondaryContainer) #D7E3F7 · task card & form container #E6EEF9 / #E4ECF8 · progress track #DFE2EB · High priority stripe #E53935 · snackbar #322F35 · Medium selected fill #E7DDD0 (label orange).
+Implementation: `app/src/design/tokens.ts` marks each value SAMPLED / DERIVED / DECISION. Dark scheme is DERIVED from the same blue tonal palette (not observed in the reference).

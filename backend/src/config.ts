@@ -31,6 +31,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     accessTtl: "15m",
     refreshTtl: "30d",
     corsOrigins: (env.CORS_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
-    authRateLimit: { windowMs: 15 * 60 * 1000, max: 20 },
+    authRateLimit: { windowMs: 15 * 60 * 1000, max: Number(env.AUTH_RATE_LIMIT_MAX ?? 20) },
   };
 }
