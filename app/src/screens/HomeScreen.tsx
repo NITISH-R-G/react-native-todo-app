@@ -11,6 +11,7 @@ import { useAuth } from '../state/authStore';
 import { useTasks } from '../state/tasksStore';
 import { AppText, ContentSheet, LargeTitle, TonalSurface } from '../ui/primitives';
 import { ProgressHeader } from '../ui/ProgressHeader';
+import { SortMenu } from '../ui/FilterBar';
 import { TasksList } from './TasksList';
 
 const greeting = (h: number) => (h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : h < 21 ? 'Good evening' : 'Good night');
@@ -44,6 +45,7 @@ export function HomeScreen({ navigation }: NativeStackScreenProps<RootStackParam
         <LargeTitle style={styles.flex}>
           {tab === 'tasks' ? greeting(new Date().getHours()) : 'Account'}
         </LargeTitle>
+        {tab === 'tasks' ? <SortMenu /> : null}
       </View>
       {tab === 'tasks' ? <ProgressHeader percent={percent} /> : null}
       <ContentSheet>

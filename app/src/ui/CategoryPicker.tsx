@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, TextInput } from 'react-native-paper';
 import { displayCategory, normalizeCategory } from '../domain/filters';
@@ -24,6 +24,14 @@ export function CategoryPicker({
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
   const options = categories.includes(value) ? categories : [...categories, value];
+  const inputRef = useRef<{ focus?: () => void } | null>(null);
+
+  // autoFocus alone is unreliable when another field already holds focus; focus explicitly once mounted.
+  useEffect(() => {
+    if (!adding) return;
+    const id = setTimeout(() => inputRef.current?.focus?.(), 100);
+    return () => clearTimeout(id);
+  }, [adding]);
 
   const commit = () => {
     const c = normalizeCategory(draft);
@@ -48,6 +56,7 @@ export function CategoryPicker({
             value={draft}
             onChangeText={setDraft}
             maxLength={30}
+            ref={inputRef as never}
             autoFocus
             returnKeyType="done"
             onSubmitEditing={commit}

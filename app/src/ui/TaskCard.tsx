@@ -15,7 +15,7 @@ function Chip({ icon, label, tone }: { icon: string; label: string; tone?: 'erro
   return (
     <View style={[styles.chip, { backgroundColor: bg }]}>
       <Icon source={icon} size={14} color={fg} />
-      <AppText variant="labelMedium" style={{ color: fg, marginLeft: 4 }}>
+      <AppText variant="labelMedium" numberOfLines={1} style={{ color: fg, marginLeft: 4 }}>
         {label}
       </AppText>
     </View>
@@ -137,6 +137,6 @@ const styles = StyleSheet.create({
   box: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, paddingHorizontal: spacing.md, minHeight: touchTarget },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm },
-  chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, height: 26, borderRadius: shape.full },
+  chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, height: 26, borderRadius: shape.full, flexShrink: 0, maxWidth: '100%' },
   more: { width: touchTarget, height: touchTarget, alignItems: 'center', justifyContent: 'center' },
 });

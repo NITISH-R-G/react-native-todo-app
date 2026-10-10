@@ -42,5 +42,5 @@ export function completionPercent(tasks: Task[]): number {
 
 export function formatWhen(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleString(undefined, { weekday: 'short', month: 'short', day: '2-digit', hour: 'numeric', minute: '2-digit' });
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }

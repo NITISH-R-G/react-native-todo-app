@@ -1,0 +1,7 @@
+count 6
+{"title":"Overdue invoice","priority":"medium","tags":["work"],"completed":false,"deadline":"2026-10-09T14:18:52.098Z"}
+{"title":"Study for exam","priority":"high","tags":["study"],"completed":false,"deadline":"2026-10-11T19:18:52.098Z"}
+{"title":"Buy groceries","priority":"low","tags":["shopping"],"completed":false,"deadline":"2026-10-11T01:18:52.098Z"}
+{"title":"Call mom on SundayFamily","priority":"high","tags":["general"],"completed":false,"deadline":null}
+{"title":"Persistence check","priority":"medium","tags":[],"completed":false,"deadline":null}
+{"title":"Book flights","priority":"high","tags":["travel"],"completed":true,"deadline":null}
