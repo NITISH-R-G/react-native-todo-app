@@ -266,3 +266,43 @@ describe("categories (tags), filtering and sorting together (CAT-001, FILT-001, 
     expect((await Task.findById(t.body.task.id).lean())?.tags).toEqual(["work"]);
   });
 });
+
+describe("multiple sessions, atomic rotation and logout (AUTH-003, SEC-001)", () => {
+  const login = async () => (await api.post("/auth/login").send(creds())).body as { refreshToken: string; accessToken: string };
+  const refresh = (t: string) => api.post("/auth/refresh").send({ refreshToken: t });
+
+  it("a second sign-in does not sign out the first device; each session rotates independently", async () => {
+    const first = await signup();
+    const second = await login();
+    expect((await refresh(first.refresh)).status).toBe(200); // device 1 still works after device 2 logged in
+    expect((await refresh(second.refreshToken)).status).toBe(200);
+    expect((await User.findOne({ email: "a@example.com" }).lean())?.refreshTokens).toHaveLength(2);
+  });
+
+  it("the same refresh token redeemed concurrently succeeds exactly once (no duplicate sessions)", async () => {
+    const { refresh: rt } = await signup();
+    const results = await Promise.all([1, 2, 3, 4].map(() => refresh(rt)));
+    expect(results.map((r) => r.status).sort()).toEqual([200, 401, 401, 401]);
+    expect((await User.findOne({ email: "a@example.com" }).lean())?.refreshTokens).toHaveLength(1);
+  });
+
+  it("keeps at most 5 sessions and evicts the oldest", async () => {
+    const first = await signup();
+    const later = [] as string[];
+    for (let i = 0; i < 5; i++) later.push((await login()).refreshToken);
+    expect((await refresh(first.refresh)).status).toBe(401); // 6th session pushed the 1st out
+    expect((await refresh(later[4]!)).status).toBe(200);
+    expect((await User.findOne({ email: "a@example.com" }).lean())?.refreshTokens).toHaveLength(5);
+  });
+
+  it("logout revokes only that session, is idempotent, and reveals nothing about bad tokens", async () => {
+    const a = await signup();
+    const b = await login();
+    expect((await api.post("/auth/logout").send({ refreshToken: a.refresh })).status).toBe(204);
+    expect((await refresh(a.refresh)).status).toBe(401);
+    expect((await refresh(b.refreshToken)).status).toBe(200); // other session unaffected
+    expect((await api.post("/auth/logout").send({ refreshToken: a.refresh })).status).toBe(204);
+    expect((await api.post("/auth/logout").send({ refreshToken: "garbage" })).status).toBe(204);
+    expect((await api.post("/auth/logout").send({})).status).toBe(400);
+  });
+});

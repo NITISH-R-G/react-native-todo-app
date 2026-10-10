@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { loginRequest, registerRequest } from '../api/auth';
+import { loginRequest, logoutRequest, registerRequest } from '../api/auth';
 import { beginSession, dropSession, getSession, restoreSession, setSessionLostHandler } from '../api/client';
 import { ApiError } from '../api/errors';
 import { fetchTasks } from '../api/tasks';
@@ -54,6 +54,10 @@ export const useAuth = create<AuthState>((set) => {
       await enter(await loginRequest(email, password));
     },
     async logout() {
+      // Best effort: revoke the refresh token server-side, but never block or fail local sign-out
+      // (offline users must still be able to sign out; the local session is always cleared).
+      const refreshToken = getSession()?.refreshToken;
+      if (refreshToken) await logoutRequest(refreshToken).catch(() => undefined);
       await dropSession();
       set({ status: 'signedOut', user: null, notice: null });
     },

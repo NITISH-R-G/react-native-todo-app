@@ -8,6 +8,7 @@ import { useAppTheme } from '../design/theme';
 import { shape, spacing, touchTarget } from '../design/tokens';
 import { useAuth } from '../state/authStore';
 import { AppText, LargeTitle, TonalSurface } from './primitives';
+import { useKeyboardHeight } from './useKeyboardHeight';
 
 type Mode = 'login' | 'register';
 
@@ -26,6 +27,7 @@ export function AuthForm({ mode, onSwitch }: { mode: Mode; onSwitch: () => void 
   const [pending, setPending] = useState(false);
   const inFlight = useRef(false);
   const isRegister = mode === 'register';
+  const keyboardHeight = useKeyboardHeight();
 
   const validate = (e: string, p: string) => (isRegister ? validateRegister(e, p) : validateLogin(e, p));
 
@@ -58,7 +60,7 @@ export function AuthForm({ mode, onSwitch }: { mode: Mode; onSwitch: () => void 
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: colors.surfaceContainerHigh }]}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: spacing.xl + keyboardHeight }]} keyboardShouldPersistTaps="handled">
           <LargeTitle>{isRegister ? 'Create account' : 'Welcome back'}</LargeTitle>
           <AppText variant="bodyLarge" tone="onSurfaceVariant" style={styles.sub}>
             {isRegister ? 'Sign up to keep your tasks safe and in sync.' : 'Sign in to pick up where you left off.'}

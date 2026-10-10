@@ -256,3 +256,29 @@ describe('Task create duplicate protection', () => {
     });
   });
 });
+
+describe('New category', () => {
+  it('is reachable without scrolling, normalises the name, and is sent as the first tag', async () => {
+    await signedInWithTask();
+    fetchMock.mockImplementation((_u: string, init: RequestInit) => (init.method === 'PATCH' ? json(200, { task: existingTask }) : json(200, { tasks: [existingTask] })));
+    await render(<Harness initial="TaskForm" params={{ taskId: 't-1' }} />);
+    await fireEvent.press(await screen.findByTestId('category-new'));
+    await fireEvent.changeText(await screen.findByTestId('category-input'), '  Side   Project ');
+    await fireEvent.press(screen.getByTestId('category-add'));
+    expect(screen.getByTestId('category-side project').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByTestId('category-selected')).toHaveTextContent('Selected: Side project');
+    await fireEvent.press(screen.getByTestId('save-task'));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, i]) => i.method === 'PATCH')).toBe(true));
+    const patch = fetchMock.mock.calls.find(([, i]) => i.method === 'PATCH')!;
+    expect(JSON.parse(patch[1].body).tags).toEqual(['side project', 'extra']);
+  });
+
+  it('adding an empty name changes nothing', async () => {
+    await signedInWithTask();
+    await render(<Harness initial="TaskForm" params={{ taskId: 't-1' }} />);
+    await fireEvent.press(await screen.findByTestId('category-new'));
+    await fireEvent.changeText(await screen.findByTestId('category-input'), '   ');
+    await fireEvent.press(screen.getByTestId('category-add'));
+    expect(screen.getByTestId('category-work').props.accessibilityState.selected).toBe(true);
+  });
+});

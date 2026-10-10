@@ -4,6 +4,7 @@ import { Button, TextInput } from 'react-native-paper';
 import { displayCategory, normalizeCategory } from '../domain/filters';
 import { shape, spacing } from '../design/tokens';
 import { ChipRow, FilterChip } from './Chips';
+import { AppText } from './primitives';
 
 /**
  * Pick one of the existing categories or create a new one. Categories are stored as the task's first
@@ -15,11 +16,14 @@ export function CategoryPicker({
   categories,
   onChange,
   disabled,
+  onStartAdding,
 }: {
   value: string;
   categories: string[];
   onChange: (c: string) => void;
   disabled?: boolean;
+  /** Called when the new-category field opens, so the parent can scroll it above the keyboard. */
+  onStartAdding?: () => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
@@ -43,11 +47,18 @@ export function CategoryPicker({
   return (
     <View>
       <ChipRow label="Category">
+        <FilterChip label="New category" icon="plus" selected={false} onPress={() => {
+            if (disabled) return;
+            setAdding(true);
+            onStartAdding?.();
+          }} testID="category-new" />
         {options.map((c) => (
           <FilterChip key={c} label={displayCategory(c)} icon="tag-outline" selected={value === c} onPress={() => !disabled && onChange(c)} testID={`category-${c}`} />
         ))}
-        <FilterChip label="New" icon="plus" selected={false} onPress={() => !disabled && setAdding(true)} testID="category-new" />
       </ChipRow>
+      <AppText variant="bodyMedium" tone="onSurfaceVariant" style={styles.selected} accessibilityLiveRegion="polite" testID="category-selected">
+        Selected: {displayCategory(value)}
+      </AppText>
       {adding ? (
         <View style={styles.add}>
           <TextInput
@@ -75,6 +86,7 @@ export function CategoryPicker({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  selected: { paddingHorizontal: spacing.lg, marginTop: spacing.xs },
   add: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, marginTop: spacing.sm, gap: spacing.sm },
   outline: { borderRadius: shape.large },
   addBtn: { borderRadius: shape.full },

@@ -104,11 +104,37 @@ describe('failure handling', () => {
 
   it('a task list that arrives after sign-out is discarded (no cross-user leak)', async () => {
     let release: (r: Response) => void = () => {};
-    fetchMock.mockImplementation(() => new Promise<Response>((res) => (release = res)));
+    // The task list request stays pending; the logout request (a different URL) is answered normally.
+    fetchMock.mockImplementation((url: string) =>
+      url.endsWith('/auth/logout') ? json(204, null) : new Promise<Response>((res) => (release = res)),
+    );
     const pending = useTasks.getState().load();
     await useAuth.getState().logout();
     release(await json(200, { tasks: [task('someone-elses')] }));
     await pending;
     expect(useTasks.getState().tasks).toEqual([]);
+  });
+});
+
+describe('sign-out', () => {
+  it('revokes the refresh token on the server and clears local state', async () => {
+    await setSession(stored);
+    useAuth.setState({ status: 'signedIn', user: stored.user });
+    fetchMock.mockReturnValue(Promise.resolve({ status: 204, ok: true, json: () => Promise.reject(new Error('no body')) } as Response));
+    await useAuth.getState().logout();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toMatch(/\/auth\/logout$/);
+    expect(JSON.parse(init.body)).toEqual({ refreshToken: 'good-refresh' });
+    expect(useAuth.getState().status).toBe('signedOut');
+    expect(getSession()).toBeNull();
+  });
+
+  it('still signs out locally when the server is unreachable', async () => {
+    await setSession(stored);
+    useAuth.setState({ status: 'signedIn', user: stored.user });
+    fetchMock.mockRejectedValue(new TypeError('Network request failed'));
+    await useAuth.getState().logout();
+    expect(useAuth.getState().status).toBe('signedOut');
+    expect(getSession()).toBeNull();
   });
 });

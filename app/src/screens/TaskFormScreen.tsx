@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, HelperText, IconButton, Switch, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -15,6 +15,7 @@ import { CategoryPicker } from '../ui/CategoryPicker';
 import { ConnectedButtonGroup, type Option } from '../ui/ConnectedButtonGroup';
 import { DateTimeRow } from '../ui/DateTimeRow';
 import { AppText, LargeTitle, SectionLabel, TonalSurface } from '../ui/primitives';
+import { useKeyboardHeight } from '../ui/useKeyboardHeight';
 
 type Errors = FieldErrors<'title' | 'description' | 'startAt' | 'deadline'>;
 
@@ -44,6 +45,23 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
   );
   const [pending, setPending] = useState(false);
   const inFlight = useRef(false);
+  const keyboardHeight = useKeyboardHeight();
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const categoryY = useRef(0);
+
+  // The keyboard shrinks the viewport (adjustResize), and a scroll issued before that is clamped to the
+  // old, shorter scroll range. So wait for the keyboard to be shown, then scroll the category field up.
+  const scrollCategoryIntoView = () => {
+    const go = () => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, categoryY.current + 140), animated: true });
+    };
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      sub.remove();
+      setTimeout(go, 50);
+    });
+    setTimeout(() => sub.remove(), 2000); // keyboard already open: no event will come
+    if (Keyboard.isVisible()) setTimeout(go, 50);
+  };
 
   const options: Option<Priority>[] = PRIORITIES.map((p) => ({
     value: p,
@@ -109,8 +127,9 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
       </View>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
+          ref={scrollRef}
           style={[styles.sheet, { backgroundColor: colors.background }]}
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { paddingBottom: spacing.xxl * 2 + keyboardHeight }]}
           keyboardShouldPersistTaps="handled">
           <SectionLabel>What is in your mind?</SectionLabel>
           <TonalSurface style={styles.group}>
@@ -154,8 +173,14 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
           </TonalSurface>
 
           <SectionLabel>Category</SectionLabel>
-          <View style={styles.categoryWrap}>
-            <CategoryPicker value={category} categories={categories} onChange={setCategory} disabled={pending} />
+          <View style={styles.categoryWrap} onLayout={(e) => (categoryY.current = e.nativeEvent.layout.y)}>
+            <CategoryPicker
+              value={category}
+              categories={categories}
+              onChange={setCategory}
+              disabled={pending}
+              onStartAdding={scrollCategoryIntoView}
+            />
           </View>
 
           <SectionLabel>Schedule & deadline</SectionLabel>

@@ -75,7 +75,7 @@ export const lightColors: ColorRoles = {
   inverseOnSurface: '#F5EFF7',
   scrim: '#000000',
   priorityHigh: '#E53935', // SAMPLED (card stripe)
-  priorityMedium: '#F57C00', // DECISION (reference shows orange label; fill sampled #E7DDD0)
+  priorityMedium: '#B45F06', // DECISION: amber-brown, >=3:1 on cards (reference orange #F57C00 was only 2.3:1)
   priorityLow: '#2E7D32', // DECISION
 };
 
