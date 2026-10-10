@@ -28,8 +28,10 @@ export function FilterChip({
       accessibilityState={{ selected }}
       accessibilityLabel={label}
       testID={testID}
+      collapsable={false}
       style={styles.hit}>
       <View
+        collapsable={false}
         style={[
           styles.chip,
           selected
@@ -45,10 +47,15 @@ export function FilterChip({
   );
 }
 
-/** Horizontally scrolling row of chips with consistent spacing. */
-export function ChipRow({ children, label }: { children: React.ReactNode; label: string }) {
+/**
+ * Horizontally scrolling row of chips with consistent spacing.
+ * `contentKey` remounts the row when the SET of chips changes. Inserting a chip into the middle of a
+ * live row crashed the Fabric renderer (addViewAt: child already has a parent) on RN 0.87.1.
+ */
+export function ChipRow({ children, label, contentKey }: { children: React.ReactNode; label: string; contentKey?: string }) {
   return (
     <ScrollView
+      key={contentKey}
       horizontal
       showsHorizontalScrollIndicator={false}
       accessibilityLabel={label}

@@ -46,7 +46,7 @@ export function CategoryPicker({
 
   return (
     <View>
-      <ChipRow label="Category">
+      <ChipRow label="Category" contentKey={options.join("|")}>
         <FilterChip label="New category" icon="plus" selected={false} onPress={() => {
             if (disabled) return;
             setAdding(true);

@@ -40,7 +40,7 @@ export function FilterBar() {
           </ChipRow>
         </View>
       </View>
-      <ChipRow label="Filter by category">
+      <ChipRow label="Filter by category" contentKey={categories.join("|")}>
         <FilterChip label="All categories" selected={filters.category === null} onPress={() => setFilters({ category: null })} testID="filter-category-all" />
         {categories.map((c) => (
           <FilterChip
