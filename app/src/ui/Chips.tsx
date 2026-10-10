@@ -70,7 +70,8 @@ const styles = StyleSheet.create({
   row: { paddingHorizontal: spacing.lg, alignItems: 'center' },
   hit: { minHeight: touchTarget, justifyContent: 'center', marginRight: spacing.sm },
   chip: {
-    height: 32,
+    minHeight: 32,
+    paddingVertical: 4,
     paddingHorizontal: 12,
     borderRadius: shape.small,
     borderWidth: 1,

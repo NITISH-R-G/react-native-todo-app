@@ -118,7 +118,7 @@ describe('Task form', () => {
     const open = DateTimePickerAndroid.open as jest.Mock;
     await render(<Harness initial="TaskForm" />);
     await fireEvent.changeText(await screen.findByTestId('title-input'), 'Pay rent');
-    await fireEvent(screen.getByTestId('deadline-switch'), 'valueChange', true);
+    await fireEvent.press(screen.getByTestId('deadline-switch'));
     // Drive the deadline row's date -> time dialogs with a moment well before "now".
     await fireEvent.press(await screen.findByLabelText(/^Deadline: /));
     const earlier = new Date('2000-01-01T08:00:00');

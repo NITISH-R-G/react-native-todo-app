@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, HelperText, IconButton, Switch, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -111,7 +111,15 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: colors.surfaceContainerHigh }]}>
       <View style={styles.top}>
-        <IconButton icon="arrow-left" size={24} mode="outlined" onPress={() => navigation.goBack()} accessibilityLabel="Back" disabled={pending} />
+        <IconButton
+          icon="arrow-left"
+          size={24}
+          mode="outlined"
+          style={{ width: touchTarget + 6, height: touchTarget + 6 }}
+          onPress={() => navigation.goBack()}
+          accessibilityLabel="Back"
+          disabled={pending}
+        />
         <LargeTitle style={styles.title}>{taskId ? 'Edit Task' : 'New Task'}</LargeTitle>
         <Button
           mode="outlined"
@@ -125,6 +133,13 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
           {taskId ? 'Save' : 'Add'}
         </Button>
       </View>
+      {formError ? (
+        <View style={[styles.formError, { backgroundColor: colors.errorContainer }]} accessibilityLiveRegion="assertive">
+          <AppText variant="bodyMedium" style={{ color: colors.onErrorContainer }} testID="form-error">
+            {formError}
+          </AppText>
+        </View>
+      ) : null}
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           ref={scrollRef}
@@ -145,6 +160,7 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
               disabled={pending}
               maxLength={200}
               outlineStyle={styles.outline}
+              accessibilityLabel="Title, required"
               testID="title-input"
             />
             <HelperText type="error" visible={!!errors.title} accessibilityLiveRegion="polite">
@@ -160,6 +176,7 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
               error={!!errors.description}
               disabled={pending}
               outlineStyle={styles.outline}
+              accessibilityLabel="Description, optional"
               testID="description-input"
             />
             <HelperText type="error" visible={!!errors.description}>
@@ -195,25 +212,30 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
                 setErrors({ ...errors, deadline: undefined });
               }}
             />
-            <View style={[styles.switchRow, { backgroundColor: colors.surfaceContainer }]}>
+            {/* The whole row is one 48dp+ touch target; the Switch inside is purely visual. */}
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityLabel="Set a deadline"
+              accessibilityState={{ checked: hasDeadline, disabled: pending }}
+              disabled={pending}
+              onPress={() => {
+                const v = !hasDeadline;
+                setHasDeadline(v);
+                if (v && deadline.getTime() < startAt.getTime()) setDeadline(hourFrom(startAt));
+                setErrors({ ...errors, deadline: undefined });
+              }}
+              style={[styles.switchRow, { backgroundColor: colors.surfaceContainer }]}
+              testID="deadline-switch">
               <View style={styles.flex}>
                 <AppText variant="titleMedium">Deadline</AppText>
                 <AppText variant="bodyMedium" tone="onSurfaceVariant">
                   {hasDeadline ? 'Must finish by the time below' : 'No deadline'}
                 </AppText>
               </View>
-              <Switch
-                value={hasDeadline}
-                onValueChange={(v) => {
-                  setHasDeadline(v);
-                  if (v && deadline.getTime() < startAt.getTime()) setDeadline(hourFrom(startAt));
-                  setErrors({ ...errors, deadline: undefined });
-                }}
-                disabled={pending}
-                accessibilityLabel="Set a deadline"
-                testID="deadline-switch"
-              />
-            </View>
+              <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                <Switch value={hasDeadline} />
+              </View>
+            </Pressable>
             {hasDeadline ? (
               <DateTimeRow
                 label="Deadline"
@@ -228,13 +250,6 @@ export function TaskFormScreen({ navigation, route }: NativeStackScreenProps<Roo
             ) : null}
           </View>
 
-          {formError ? (
-            <View style={[styles.formError, { backgroundColor: colors.errorContainer }]} accessibilityLiveRegion="assertive">
-              <AppText variant="bodyMedium" style={{ color: colors.onErrorContainer }} testID="form-error">
-                {formError}
-              </AppText>
-            </View>
-          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -245,7 +260,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   top: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: spacing.md, gap: spacing.sm },
   title: { flex: 1, fontSize: 30, lineHeight: 38 },
-  saveContent: { minHeight: touchTarget - 4 },
+  saveContent: { minHeight: touchTarget },
   sheet: { borderTopLeftRadius: shape.sheet, borderTopRightRadius: shape.sheet },
   scroll: { padding: spacing.lg, paddingBottom: spacing.xxl * 2 },
   group: { marginTop: spacing.sm },
@@ -253,5 +268,5 @@ const styles = StyleSheet.create({
   categoryWrap: { marginTop: spacing.sm, marginHorizontal: -spacing.lg },
   rows: { gap: spacing.sm, marginTop: spacing.sm },
   switchRow: { flexDirection: 'row', alignItems: 'center', padding: spacing.lg, borderRadius: shape.large, minHeight: touchTarget + 16 },
-  formError: { padding: spacing.md, borderRadius: shape.large, marginTop: spacing.lg },
+  formError: { padding: spacing.md, borderRadius: shape.large, marginHorizontal: spacing.lg, marginBottom: spacing.sm },
 });

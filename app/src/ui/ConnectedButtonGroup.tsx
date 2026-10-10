@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { useAppTheme } from '../design/theme';
 import { shape, touchTarget, typography } from '../design/tokens';
@@ -28,11 +28,13 @@ export function ConnectedButtonGroup<T extends string>({
   label: string;
 }) {
   const { colors } = useAppTheme();
+  // At large system font sizes equal-width segments would break words mid-letter, so stack them.
+  const stacked = useWindowDimensions().fontScale >= 1.5;
   return (
     <View
       accessibilityRole="radiogroup"
       accessibilityLabel={label}
-      style={[styles.row, { borderColor: colors.outline, borderRadius: shape.full }]}>
+      style={[styles.row, stacked && styles.column, { borderColor: colors.outline, borderRadius: stacked ? shape.extraLarge : shape.full }]}>
       {options.map((o, i) => {
         const selected = o.value === value;
         const fg = selected ? (o.accent ?? colors.onSecondaryContainer) : colors.onSurface;
@@ -46,7 +48,7 @@ export function ConnectedButtonGroup<T extends string>({
             android_ripple={{ color: colors.secondaryContainer }}
             style={[
               styles.segment,
-              i > 0 && { borderLeftWidth: 1, borderLeftColor: colors.outline },
+              i > 0 && (stacked ? { borderTopWidth: 1, borderTopColor: colors.outline } : { borderLeftWidth: 1, borderLeftColor: colors.outline }),
               selected && { backgroundColor: o.accent ? `${o.accent}26` : colors.secondaryContainer },
             ]}>
             {selected ? <Icon source="check" size={18} color={fg} /> : null}
@@ -62,6 +64,7 @@ export function ConnectedButtonGroup<T extends string>({
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', borderWidth: 1, overflow: 'hidden' },
+  column: { flexDirection: 'column' },
   segment: {
     flex: 1,
     minHeight: touchTarget,

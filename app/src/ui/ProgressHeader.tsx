@@ -3,6 +3,7 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { useAppTheme } from '../design/theme';
 import { motion, shape, spacing } from '../design/tokens';
 import { AppText } from './primitives';
+import { useReduceMotion } from './useReduceMotion';
 
 /**
  * Progress label, percentage and a thick rounded bar that animates between values.
@@ -11,15 +12,16 @@ import { AppText } from './primitives';
  */
 export function ProgressHeader({ percent }: { percent: number }) {
   const { colors } = useAppTheme();
+  const reduceMotion = useReduceMotion();
   const anim = useRef(new Animated.Value(percent)).current;
   useEffect(() => {
     Animated.timing(anim, {
       toValue: percent,
-      duration: motion.emphasized,
+      duration: reduceMotion ? 0 : motion.emphasized,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [percent, anim]);
+  }, [percent, anim, reduceMotion]);
   const width = anim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
   return (
     <View

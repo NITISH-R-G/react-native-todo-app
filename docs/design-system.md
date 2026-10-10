@@ -25,3 +25,10 @@ Labels: OBSERVED = seen in screenshot/dump; INFERRED; UNKNOWN. Colours below wer
 ## Sampled colours (SAMPLED from reference screenshots, light theme)
 primary/FAB/Next button #0061A4 · primaryContainer (icon tile, Today chip) #D1E4FF · background/content sheet #F8F9FF · screen top background #F0F4F8 · bottom bar #E5ECF4 · nav active pill / selected segment (secondaryContainer) #D7E3F7 · task card & form container #E6EEF9 / #E4ECF8 · progress track #DFE2EB · High priority stripe #E53935 · snackbar #322F35 · Medium selected fill #E7DDD0 (label orange).
 Implementation: `app/src/design/tokens.ts` marks each value SAMPLED / DERIVED / DECISION. Dark scheme is DERIVED from the same blue tonal palette (not observed in the reference).
+
+## Sprint 2 changes
+- Priority accent (medium) changed from sampled-reference orange `#F57C00` to `#B45F06` after the contrast test showed 2.3:1 on cards (needs >= 3:1). High `#E53935` (3.6:1) and low `#2E7D32` (4.4:1) kept.
+- Filter chips (status with live counts, category), a header sort button (outlined circular icon button, like the reference header actions), category picker with "New category", "Selected: X" line.
+- At system font scale >= 1.5 the connected button group stacks vertically; card chips wrap instead of truncating; chips never shrink below their text.
+- Interactive controls >= 48dp (icon buttons 54dp incl. margin; deadline row is one large switch target).
+- Not built: wavy progress, confetti (see decisions.md D15).

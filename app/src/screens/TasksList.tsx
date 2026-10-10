@@ -9,6 +9,7 @@ import { useAppTheme } from '../design/theme';
 import { shape, spacing } from '../design/tokens';
 import { useTasks } from '../state/tasksStore';
 import { AppText } from '../ui/primitives';
+import { ErrorBanner } from '../ui/ErrorBanner';
 import { FilterBar } from '../ui/FilterBar';
 import { TaskCard } from '../ui/TaskCard';
 
@@ -88,6 +89,7 @@ export function TasksList({
   }
   return (
     <>
+      {status === 'error' && tasks.length > 0 ? <ErrorBanner message={error ?? 'Couldn’t refresh.'} onRetry={() => load({ silent: true })} /> : null}
       <FilterBar />
       {filtered.length === 0 ? (
         <View style={styles.center} accessibilityLiveRegion="polite">

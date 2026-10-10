@@ -1,13 +1,13 @@
 # Verification
 
 ## Current state
-- Milestone: Sprint 1 vertical slice (register, login, task CRUD, persistence) verified on emulator.
-- Last known good commit: 2df3161 (+ debug build recorded in B2).
+- Milestone: Sprint 2 complete (edit, categories, filters, documented sort, session hardening, a11y pass).
+- Last known good commit: see `git log` (Sprint 2 final commit); previous 6bc14f6.
 - Implemented: AUTH-001/002/003, TASK-001..006, API-001, DATA-001, SEC-001 (partial), UI-001/002 (partial), FAIL-001 (partial).
-- Verified: AUTH-001, AUTH-002, TASK-001..005, API-001, DATA-001 (evidence B1, B3).
-- Blocking: none. Debug build needs Metro (`npx react-native start`) + `adb reverse tcp:8081 tcp:8081` and the dev API (`cd backend && npm run dev:local`).
-- Next three actions: (1) release build + https API URL config + signing; (2) filters/categories UI + edit/error/offline states exercised on device; (3) accessibility run (TalkBack, 200% font) and small-screen check.
-- Known unverified claims: token expiry/refresh on device, offline and 5xx UI on device, edit task on device, rate limiter, TalkBack/font scaling, small screens, release build, production backend.
+- Verified: AUTH-001/002/003, TASK-001..006, API-001, DATA-001, SORT-001, FILT-001, CAT-001, UI-002, FAIL-001 (evidence B1, B3, B4, B5).
+- Blocking: none. Dev setup: backend `npm run dev:local` (kill any older dev-local process first: two servers on :4000 silently serve stale code), Metro + `adb reverse tcp:8081 tcp:8081`, emulator ref35.
+- Next three actions: (1) release build: https API URL, signing key outside repo, AAB; (2) TalkBack + keyboard traversal run, and a real-device pass; (3) hosting + Atlas + backups + privacy policy for Play.
+- Known unverified claims: TalkBack announcements, rate limiter, CORS/TLS, 5xx screens on device, wavy progress/confetti (not built), release build, production backend, real physical device.
 
 ## Reference APK audit (2026-10-09) — `Mytasks-release.apk`
 Evidence kept in `docs/evidence/reference-apk/` (manifest only).
@@ -80,3 +80,61 @@ Notes / honest limitations:
 - Text entry used `adb input text` in 3-character chunks; fast typing dropped characters in a controlled field (test-harness effect, not investigated as an app bug).
 - Not verified on device: real access-token expiry/refresh, offline and 5xx screens, task edit, rate limiter, TalkBack, 200% font scale, small screens, release build.
 - Colours: "SAMPLED" values in `design/tokens.ts` come from reference screenshot pixels; dark scheme is derived, not observed.
+
+## B4. Sprint 2 automated checks (final run)
+| Command | Result |
+|---|---|
+| `cd backend && npx tsc --noEmit` | exit 0 |
+| `cd backend && npx vitest run --testTimeout=60000 --hookTimeout=300000` | 2 files, **47 tests passed** (real mongod via mongodb-memory-server) |
+| `cd app && npx tsc --noEmit` | exit 0 |
+| `cd app && npx eslint App.tsx src __tests__` | 0 errors, 13 warnings (react-native/no-inline-styles) |
+| `cd app && npx jest` | 8 suites, **101 tests passed** |
+| `cd app/android && ./gradlew.bat assembleDebug -PreactNativeArchitectures=x86_64` | see B6 |
+
+New distinct risks covered (and how they were checked):
+- Sort precedence/ties: `backend/tests/sort.test.ts` 14-row table, each also run on reversed input, plus antisymmetry/transitivity over a mixed set. API-level composition of sort + filters in `api.e2e.test.ts`.
+- Atomic refresh rotation: 4 concurrent redemptions of one refresh token -> exactly `[200,401,401,401]`. **Mutation check:** replacing the atomic `findOneAndUpdate` with read-then-write produced `[200,200,401,401]` and the test failed; restored.
+- Multi-session: second login keeps first session; 6th session evicts oldest; logout revokes only its session and is idempotent.
+- Cross-user: another user's PATCH of a task's tags -> 404 and DB unchanged.
+- Client: edit prefill/cancel/validation/404-deleted; create double-submit (**mutation check:** removing the in-flight guard -> 2 POSTs, test fails); sign-out discards in-flight list (**mutation check** on the epoch guard); expired/revoked/offline boot; malformed 200/HTML 502; mutations attempted exactly once.
+- Contrast: `contrast.test.ts` computes WCAG ratios for the real tokens (34 tests). It **found a defect**: medium-priority orange `#F57C00` was 2.31:1 on cards; replaced by `#B45F06` (3.9:1).
+- A mutation check also showed one earlier edit-save test was vacuous (the store's busy guard hid a missing form guard); a create-path test was added that does fail without the guard.
+
+## B5. Sprint 2 emulator evidence (`docs/evidence/app-sprint2/`)
+Environment: Android 35 AVD `ref35`; backend dev API with `JWT_ACCESS_TTL=20s` so expiry/refresh happen within seconds; Metro debug bundle.
+| # | Check | Result | Evidence |
+|---|---|---|---|
+| 1 | Seeded tasks (overdue, completed, 4 categories, priorities) via API | smart order on device = predicted: Overdue invoice > Study for exam > Buy groceries > Persistence check > Call mom > Book flights | 01-list-with-filters.png, seed.mjs |
+| 2 | Filters: Overdue; category Study; Study + Completed (empty-match state + Clear filters) | PASS | 03/04/05-*.png |
+| 3 | Sort menu: Newest first / Nearest deadline / Smart | PASS orders matched (nearest deadline: Buy groceries before Study; no-deadline last) | 06-sort-menu.png, 07/08-*.png |
+| 4 | Edit existing task (title, priority) | persisted: server read-back shows new title and `high` | api-after-edit.txt |
+| 5 | New category "Errands" via the form, save | server `tags:["errands"]`; appears in filter row; filtering works | 11-category-added.png, api-new-category.txt, 17/18-*.png, api-hobbies.txt |
+| 6 | Session: restart after access-token expiry | app stays signed in (silent refresh) x3 | (log in B5 notes) |
+| 7 | Session: second client logs in as same user while device is signed in, token expired, device acts | device stays signed in, request succeeds | 14-multi-session-still-signed-in.png |
+| 8 | Session: refresh token rejected | app signs out with "Your session expired" banner, no crash | 13-session-expired-notice.png |
+| 9 | Offline: kill backend, pull-to-refresh | banner "Can't reach the server ... Showing your last loaded tasks" + Retry; list intact | 19-offline-banner.png |
+| 10 | Offline: relaunch app with server down | stays signed in (session kept) | (state read in run) |
+| 11 | Offline: create task | error under header, form content kept | 20-offline-create-error.png |
+| 12 | Backend restored, same form saved again | list shown, session valid, **exactly one** "Created while offline" on server | 21-recovered-after-offline.png, api-after-offline-recovery.txt |
+| 13 | Loading state | spinner captured at launch | 00-loading-state.png |
+| 14 | 200% system font: Home, form | no overlap; segmented control stacks vertically; deadline chip no longer truncated | 23-font200-home.png, 24-font200-task-form.png |
+| 15 | 360x640dp screen: Home, form | no horizontal overflow (0 text nodes beyond screen width); "Work" chip no longer clipped | 25/26/27-small-screen-*.png |
+| 16 | Touch targets (uiautomator bounds / 2.625): form | 0 below 48dp after fixes; Home: only list rows partly hidden behind the bottom bar report <48dp (measurement artefact) | - |
+| 17 | Accessible names + reading order | Home: 21 named interactive elements, 0 unnamed; form: title/description were unnamed -> labelled | - |
+
+Defects found by device testing and fixed this sprint (none were caught by Jest):
+1. **Keyboard hid the new-category field** (Android 15 edge-to-edge: window does not resize). Fix: `useKeyboardHeight` padding + scroll after `keyboardDidShow`.
+2. **"New category" chip was at the far end of a scrolling row** (off-screen). Moved first; "Selected: X" line added.
+3. **Fabric crash `addViewAt: child already has a parent`** (RedBox, reproduced 3/3) when saving a task with a brand-new category (chip inserted mid-row). `collapsable={false}` did NOT fix it; remounting chip rows via a content key did (verified; 15-redbox-addViewAt.png).
+4. **Single refresh slot per user**: any second sign-in (even my own verification script) silently signed the device out. Replaced by multi-session store + atomic rotation + `/auth/logout`.
+5. Form error was below the fold; moved under the header.
+6. Touch targets (sort/back 38dp, Add/Save 44dp, deadline switch 27dp) and large-font/small-screen chip clipping.
+7. Medium-priority color contrast (see B4).
+Testing-process lesson recorded: two dev API servers were running (stale code kept answering on :4000); I verified the live server by behaviour (session count after two logins) before trusting any device result.
+
+Known limitation: refresh tokens are single-use. If the app is killed between the server rotating the token and the app saving the new one (e.g. process kill mid-refresh), that session cannot refresh and the user signs in again (shown with the "session expired" notice). Reasonable for security; a grace window would weaken reuse detection.
+Offline support: the list is a read-only cache while offline; creating/editing/deleting offline and later syncing is NOT implemented.
+
+## B6. Android debug build gate (Sprint 2)
+`cd app/android && ./gradlew.bat assembleDebug -PreactNativeArchitectures=x86_64` -> **BUILD SUCCESSFUL in 48s**, exit 0.
+Scope: no native dependency or Android file changed in Sprint 2 (all changes are JS/TS), so Gradle reused its previous outputs; the APK (`app-debug.apk`, 61,139,284 bytes, 2026-10-09 23:39) is the Sprint 1 binary and the new JS is served by Metro in debug. This confirms the project still builds; it does not exercise a bundled (release) JS build, which remains part of REL-001.

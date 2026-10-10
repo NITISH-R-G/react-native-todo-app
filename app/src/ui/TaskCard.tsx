@@ -7,6 +7,7 @@ import type { Task } from '../domain/types';
 import { useAppTheme } from '../design/theme';
 import { shape, spacing, touchTarget } from '../design/tokens';
 import { AppText } from './primitives';
+import { useReduceMotion } from './useReduceMotion';
 
 function Chip({ icon, label, tone }: { icon: string; label: string; tone?: 'error' }) {
   const { colors } = useAppTheme();
@@ -15,7 +16,7 @@ function Chip({ icon, label, tone }: { icon: string; label: string; tone?: 'erro
   return (
     <View style={[styles.chip, { backgroundColor: bg }]}>
       <Icon source={icon} size={14} color={fg} />
-      <AppText variant="labelMedium" numberOfLines={1} style={{ color: fg, marginLeft: 4 }}>
+      <AppText variant="labelMedium" style={[styles.chipText, { color: fg }]}>
         {label}
       </AppText>
     </View>
@@ -26,8 +27,9 @@ function Chip({ icon, label, tone }: { icon: string; label: string; tone?: 'erro
 function CheckTile({ checked, disabled, onPress, title }: { checked: boolean; disabled: boolean; onPress: () => void; title: string }) {
   const { colors } = useAppTheme();
   const scale = useRef(new Animated.Value(1)).current;
+  const reduceMotion = useReduceMotion();
   const press = () => {
-    Animated.sequence([
+    if (!reduceMotion) Animated.sequence([
       Animated.timing(scale, { toValue: 0.85, duration: 80, useNativeDriver: true }),
       Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }),
     ]).start();
@@ -137,6 +139,9 @@ const styles = StyleSheet.create({
   box: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, paddingHorizontal: spacing.md, minHeight: touchTarget },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm },
-  chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, height: 26, borderRadius: shape.full, flexShrink: 0, maxWidth: '100%' },
+  chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 3, minHeight: 26, borderRadius: shape.full, flexShrink: 0, maxWidth: '100%' },
+  // letterSpacing is zeroed and a little right padding added: on Android the measured width of letter-spaced
+  // bold text can come up a pixel short and clip the last glyph (seen as "Wor" for "Work" on a 360dp screen).
+  chipText: { marginLeft: 4, flexShrink: 1, letterSpacing: 0, paddingRight: 2 },
   more: { width: touchTarget, height: touchTarget, alignItems: 'center', justifyContent: 'center' },
 });

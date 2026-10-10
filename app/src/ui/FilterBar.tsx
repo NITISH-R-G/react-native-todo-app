@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { IconButton, Menu } from 'react-native-paper';
 import { availableCategories, displayCategory, statusCounts, type SortMode, type StatusFilter } from '../domain/filters';
+import { touchTarget } from '../design/tokens';
 import { useTasks } from '../state/tasksStore';
 import { ChipRow, FilterChip } from './Chips';
 
@@ -71,6 +72,7 @@ export function SortMenu() {
           icon="sort"
           mode="outlined"
           size={24}
+          style={{ width: touchTarget + 6, height: touchTarget + 6 }}
           onPress={() => setMenu(true)}
           accessibilityLabel={`Sort tasks. Current: ${SORTS.find((s) => s.key === sort)?.label}`}
           testID="sort-button"
