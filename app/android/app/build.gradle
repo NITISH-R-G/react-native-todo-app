@@ -57,7 +57,7 @@ react {
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = true
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -71,6 +71,16 @@ def enableProguardInReleaseBuilds = false
  * this variant is about 6MiB larger per architecture than default.
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+
+// Release signing comes ONLY from external properties (e.g. ~/.gradle/gradle.properties or CI secrets),
+// never from files in this repository. Without all four, the release artifact is built UNSIGNED:
+// it must never silently fall back to the debug key.
+def releaseStoreFile = findProperty("TODO_UPLOAD_STORE_FILE") ?: System.getenv("TODO_UPLOAD_STORE_FILE")
+def releaseStorePassword = findProperty("TODO_UPLOAD_STORE_PASSWORD") ?: System.getenv("TODO_UPLOAD_STORE_PASSWORD")
+def releaseKeyAlias = findProperty("TODO_UPLOAD_KEY_ALIAS") ?: System.getenv("TODO_UPLOAD_KEY_ALIAS")
+def releaseKeyPassword = findProperty("TODO_UPLOAD_KEY_PASSWORD") ?: System.getenv("TODO_UPLOAD_KEY_PASSWORD")
+def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword && file(releaseStoreFile).exists()
+
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -92,17 +102,41 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Signed with the upload key when configured; otherwise intentionally unsigned (never the debug key).
+            signingConfig hasReleaseSigning ? signingConfigs.release : null
             minifyEnabled enableProguardInReleaseBuilds
+            shrinkResources enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+}
+
+// Release gate: refuse to package a release whose production API URL is missing or unsafe.
+// -PallowEmptyApiUrl=true bypasses it ONLY to verify packaging; such an app reports "no API server configured".
+def apiUrlCheck = tasks.register("checkReleaseApiUrl", Exec) {
+    workingDir rootProject.projectDir.parentFile
+    commandLine "node", "scripts/check-release-config.mjs"
+    ignoreExitValue = project.hasProperty("allowEmptyApiUrl")
+}
+tasks.matching { it.name in ["assembleRelease", "bundleRelease", "packageRelease"] }.configureEach { dependsOn apiUrlCheck }
+if (!hasReleaseSigning) {
+    gradle.taskGraph.whenReady { graph ->
+        if (graph.allTasks.any { it.name.toLowerCase().contains("release") }) {
+            logger.warn("WARNING: no release signing config (TODO_UPLOAD_STORE_FILE/_STORE_PASSWORD/_KEY_ALIAS/_KEY_PASSWORD). The release artifact will be UNSIGNED and cannot be installed or uploaded.")
         }
     }
 }

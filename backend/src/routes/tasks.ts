@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { isValidObjectId, type HydratedDocument } from "mongoose";
 import { Task, type TaskDoc } from "../models/Task.js";
+import { User } from "../models/User.js";
 import { HttpError } from "../errors.js";
 import { compareSmart, isOverdue, type Rankable } from "../domain/sort.js";
 import { createTaskSchema, listQuerySchema, updateTaskSchema } from "../validation.js";
@@ -65,6 +66,8 @@ export function tasksRouter(): Router {
 
   r.post("/", async (req, res) => {
     const body = createTaskSchema.parse(req.body);
+    // An access token outlives account deletion by up to its TTL; never create tasks for a user that no longer exists.
+    if (!(await User.exists({ _id: req.userId }))) throw new HttpError(401, "unauthorized", "Account no longer exists");
     const t = await Task.create({ ...body, userId: req.userId });
     res.status(201).json({ task: toDto(t, new Date()) });
   });

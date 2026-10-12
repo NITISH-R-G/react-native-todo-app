@@ -12,6 +12,7 @@ const password = z
 
 export const registerSchema = z.object({ email, password }).strict();
 export const loginSchema = z.object({ email, password: z.string().min(1).max(128) }).strict();
+export const deleteAccountSchema = z.object({ password: z.string().min(1).max(128) }).strict();
 export const refreshSchema = z.object({ refreshToken: z.string().min(1) }).strict();
 
 const isoDate = z.string().datetime({ offset: true }).transform((s) => new Date(s));

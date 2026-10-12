@@ -1,0 +1,12 @@
+Keyboard traversal (hardware Tab, emulator ref35, login screen), observed from the accessibility tree:
+  Tab order: Email > Sign in > Show password > Create an account > Password > (wraps) Email
+  Expected: Email > Password > Show password > Sign in > Create an account
+  Result: reproducible; cause is native view-tree order of Paper's composed inputs. NOT fixed (see verification.md B9).
+IME Next on the email field: before the fix the keyboard closed; after the fix focus moves to Password and the form is not submitted (verified on device).
+
+TalkBack (Android Accessibility Suite on the emulator):
+  Enabled via secure settings; the service binds and draws its green focus ring (33-talkback-enabled.png).
+  After one next-item swipe the focus ring was exactly on the Email field (bounds 126,643 to 953,768).
+  Touch exploration of Email: ring within 2 px of the field bounds.
+  Further swipe automation through adb stopped advancing focus, and speech output cannot be captured, so spoken text and full swipe order were NOT verified.
+  Reading order from the accessibility tree is logical on Home and the task form (see Sprint 2 audit); that is not proof of TalkBack speech.

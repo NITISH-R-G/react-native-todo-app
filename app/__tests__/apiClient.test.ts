@@ -70,3 +70,26 @@ describe('authedRequest token handling', () => {
     await expect(authedRequest('POST', '/tasks', {})).rejects.toMatchObject({ fieldErrors: { deadline: 'Deadline must not be before the start date-time' } });
   });
 });
+
+// Risk: the server rotates the token, then the secure-storage write fails (or the process dies mid-write).
+describe('refresh persistence failure', () => {
+  it('keeps the new tokens in memory, still completes the request, and persists on the next healthy request', async () => {
+    const Keychain = require('react-native-keychain');
+    fakeServer(async (url, auth) => {
+      if (url.endsWith('/auth/refresh')) return json(200, { accessToken: 'new-access', refreshToken: 'new-refresh' });
+      return auth === 'Bearer new-access' ? json(200, { tasks: [] }) : json(401, { error: { code: 'token_expired', message: 'x' } });
+    });
+    const real = Keychain.setGenericPassword.getMockImplementation();
+    // storage fails for the post-rotation write AND the immediate retry at the end of the same request
+    Keychain.setGenericPassword.mockImplementationOnce(() => Promise.reject(new Error('keystore unavailable')));
+    Keychain.setGenericPassword.mockImplementationOnce(() => Promise.reject(new Error('keystore unavailable')));
+    await expect(authedRequest('GET', '/tasks')).resolves.toEqual({ tasks: [] }); // request not failed by the storage error
+    expect(getSession()?.refreshToken).toBe('new-refresh'); // new tokens kept in memory
+    const persistedBefore = JSON.parse(((await Keychain.getGenericPassword({ service: 'todo.session' })) as { password: string }).password);
+    expect(persistedBefore.refreshToken).toBe('old-refresh'); // storage still holds the (recoverable-on-server) old token
+    await authedRequest('GET', '/tasks'); // next healthy request retries the write
+    const persistedAfter = JSON.parse(((await Keychain.getGenericPassword({ service: 'todo.session' })) as { password: string }).password);
+    expect(persistedAfter.refreshToken).toBe('new-refresh');
+    Keychain.setGenericPassword.mockImplementation(real);
+  });
+});

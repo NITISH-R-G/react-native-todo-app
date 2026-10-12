@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { loginRequest, logoutRequest, registerRequest } from '../api/auth';
+import { deleteAccountRequest, loginRequest, logoutRequest, registerRequest } from '../api/auth';
 import { beginSession, dropSession, getSession, restoreSession, setSessionLostHandler } from '../api/client';
 import { ApiError } from '../api/errors';
 import { fetchTasks } from '../api/tasks';
@@ -16,6 +16,8 @@ interface AuthState {
   register: (email: string, password: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Deletes the account on the server (password-confirmed), then clears all local state. Throws on failure. */
+  deleteAccount: (password: string) => Promise<void>;
 }
 
 export const useAuth = create<AuthState>((set) => {
@@ -52,6 +54,11 @@ export const useAuth = create<AuthState>((set) => {
     },
     async login(email, password) {
       await enter(await loginRequest(email, password));
+    },
+    async deleteAccount(password) {
+      await deleteAccountRequest(password); // only clear local state once the server confirmed the deletion
+      await dropSession();
+      set({ status: 'signedOut', user: null, notice: 'Your account was deleted.' });
     },
     async logout() {
       // Best effort: revoke the refresh token server-side, but never block or fail local sign-out

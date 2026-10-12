@@ -10,6 +10,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { TaskFormScreen } from './src/screens/TaskFormScreen';
 import { useAuth } from './src/state/authStore';
 import { useTasks } from './src/state/tasksStore';
+import { ConfigGate } from './src/ui/ConfigGate';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -61,7 +62,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppThemeProvider>
-        <Root />
+        <ConfigGate>
+          <Root />
+        </ConfigGate>
       </AppThemeProvider>
     </SafeAreaProvider>
   );

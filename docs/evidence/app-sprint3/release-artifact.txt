@@ -1,0 +1,15 @@
+Unsigned release APK (packaging verification only; NOT shippable: no production API URL, no signature)
+path:    app/android/app/build/outputs/apk/release/app-release-unsigned.apk
+size:    36,418,420 bytes
+sha256:  95806C31385E6CB0C2942CA44AE8CAD0362AE382AE38A5E8EB993318414F3D2B
+command: cd app/android && ./gradlew.bat assembleRelease -PallowEmptyApiUrl=true -PreactNativeArchitectures=arm64-v8a,x86_64
+result:  BUILD SUCCESSFUL in 1m 16s (incremental)
+checks (aapt2 / apksigner / archive scan):
+  package com.todoapp, versionCode 1, versionName 1.0, minSdk 24, targetSdk 36
+  uses-permission: INTERNET only (plus the app's own signature-scoped receiver permission)
+  not debuggable; allowBackup=false; usesCleartextTraffic=false
+  apksigner verify: DOES NOT VERIFY (Missing META-INF/MANIFEST.MF): unsigned, as intended
+  native ABIs: arm64-v8a, x86_64; JS bundle assets/index.android.bundle is Hermes bytecode (1,957,100 bytes)
+  absent from bundle and dex: 10.0.2.2, localhost, 127.0.0.1, api.invalid, test passwords/emails, androiddebugkey
+  present: "no API server configured" (safe failure), account deletion strings
+earlier reproducibility check: two clean builds of identical source produced identical SHA-256

@@ -8,7 +8,18 @@ const userSchema = new Schema(
     // One entry per signed-in device/session: SHA-256 of that session's current refresh-token jti.
     // Rotation replaces the matching entry atomically; at most MAX_SESSIONS are kept (oldest evicted).
     refreshTokens: {
-      type: [{ hash: { type: String, required: true }, createdAt: { type: Date, default: Date.now }, _id: false }],
+      type: [
+        {
+          hash: { type: String, required: true }, // SHA-256 of the CURRENT refresh token's jti
+          // Current token's jti and issue time: not secret by themselves (a refresh token is only valid with
+          // our signature); kept so a lost rotation response can be re-delivered identically (see auth.ts).
+          jti: { type: String, default: null },
+          rotatedAt: { type: Date, default: Date.now },
+          prevHash: { type: String, default: null }, // hash of the token this one replaced (one level only)
+          createdAt: { type: Date, default: Date.now },
+          _id: false,
+        },
+      ],
       default: [],
     },
   },

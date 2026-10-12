@@ -18,3 +18,11 @@
 - D16 Auth sessions: up to 5 concurrent sessions per user (array of refresh-token hashes), rotation by atomic match-and-replace, `POST /auth/logout` revokes one session (app calls it best-effort on sign-out). Access token TTL configurable via `JWT_ACCESS_TTL` (default 15m; 20s in the dev script for expiry testing).
 - D17 Keyboard handling on Android 15+ edge-to-edge: forms add the keyboard height as bottom padding (`useKeyboardHeight`) instead of relying on `adjustResize`.
 - D18 No automatic retry for mutations (a retried POST could duplicate); GET failures show a banner/error state with an explicit Retry.
+- D19 Refresh durability: one-generation, time-limited (default 30s) idempotent re-delivery of the same replacement token, never a new rotation; atomic rotation unchanged; disable with REFRESH_REUSE_GRACE_SECONDS=0. Chosen over longer windows, multi-generation history or client-only fixes because it narrows the stale-token exposure to the interval in which a legitimate retry is plausible.
+- D20 Release signing: external properties only (`TODO_UPLOAD_STORE_FILE`, `_STORE_PASSWORD`, `_KEY_ALIAS`, `_KEY_PASSWORD`); no key in the repository; unsigned output otherwise, never the debug key. A keystore must be created by the owner.
+- D21 R8 minification and resource shrinking enabled for release; smoke-tested on an emulator (partial coverage, see B9).
+- D22 Production URL: empty constant plus a Gradle-wired check script; bypass flag exists only for packaging verification; unconfigured builds show a "Not configured" screen.
+- D23 Account deletion needs access token plus password. A wrong password is 403 (not 401) because clients treat 401 as "refresh your token". Tasks are deleted before the user so an interrupted deletion can simply be retried.
+- D24 Unused biometric permissions removed from the merged manifest.
+- D25 Operations defaults: `TRUST_PROXY`, `REQUIRE_HTTPS`, per-user API limiter, JSON request log without query or bodies, `/health` (liveness) versus `/ready` (database).
+- D26 Hardware Tab order on the login form left as is (library-composed views); documented instead of adding a focus workaround.

@@ -26,6 +26,8 @@ export function AuthForm({ mode, onSwitch }: { mode: Mode; onSwitch: () => void 
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const inFlight = useRef(false);
+  // Paper's TextInput ref is an imperative handle with focus(); typed minimally to avoid fighting its generics.
+  const passwordRef = useRef<{ focus?: () => void } | null>(null);
   const isRegister = mode === 'register';
   const keyboardHeight = useKeyboardHeight();
 
@@ -90,6 +92,7 @@ export function AuthForm({ mode, onSwitch }: { mode: Mode; onSwitch: () => void 
               textContentType="emailAddress"
               returnKeyType="next"
               submitBehavior="submit"
+              onSubmitEditing={() => passwordRef.current?.focus?.()}
               error={!!errors.email}
               disabled={pending}
               outlineStyle={styles.outline}
@@ -101,6 +104,7 @@ export function AuthForm({ mode, onSwitch }: { mode: Mode; onSwitch: () => void 
             </HelperText>
 
             <TextInput
+              ref={passwordRef as never}
               mode="outlined"
               label="Password"
               value={password}

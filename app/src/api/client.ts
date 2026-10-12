@@ -10,6 +10,8 @@ let onSessionLost: (() => void) | null = null;
 let refreshing: Promise<Session> | null = null;
 /** Bumps on sign-in and sign-out (not on token refresh) so results from a previous session can be discarded. */
 let epoch = 0;
+/** True when the newest tokens exist only in memory because the secure-storage write failed; retried later. */
+let unpersisted = false;
 export const getEpoch = (): number => epoch;
 
 /** Registers a callback fired when the session can no longer be refreshed (expired/revoked). */
@@ -30,6 +32,7 @@ export async function beginSession(s: Session): Promise<void> {
 
 export async function dropSession(): Promise<void> {
   epoch += 1;
+  unpersisted = false;
   current = null;
   await clearSession();
 }
@@ -88,7 +91,15 @@ function refreshSession(): Promise<Session> {
         const res = await rawRequest('POST', '/auth/refresh', { refreshToken: s.refreshToken }, null);
         const tokens = await parse<{ accessToken: string; refreshToken: string }>(res);
         const next: Session = { ...s, ...tokens };
-        await setSession(next);
+        // The server has already rotated. Never lose the new tokens or fail the user's request because the
+        // secure-storage write failed: keep them in memory and retry persisting (see persistIfNeeded).
+        current = next;
+        try {
+          await saveSession(next);
+          unpersisted = false;
+        } catch {
+          unpersisted = true;
+        }
         return next;
       } catch (e) {
         // Only an explicit rejection ends the session; a network blip must not log the user out.
@@ -113,7 +124,20 @@ export async function authedRequest<T>(method: string, path: string, body?: unkn
     const next = await refreshSession();
     res = await rawRequest(method, path, body, next.accessToken);
   }
-  return parse<T>(res);
+  const out = await parse<T>(res);
+  await persistIfNeeded();
+  return out;
+}
+
+/** Retries a previously failed secure-storage write after any request that proved the session is healthy. */
+async function persistIfNeeded(): Promise<void> {
+  if (!unpersisted || !current) return;
+  try {
+    await saveSession(current);
+    unpersisted = false;
+  } catch {
+    // still failing: stay in memory-only mode and try again next time
+  }
 }
 
 /** Unauthenticated JSON request (register / login). */

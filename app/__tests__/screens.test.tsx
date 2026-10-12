@@ -282,3 +282,18 @@ describe('New category', () => {
     expect(screen.getByTestId('category-work').props.accessibilityState.selected).toBe(true);
   });
 });
+
+describe('Keyboard flow on the auth form', () => {
+  it('the email field\'s Next action moves focus to the password field (and does not submit)', async () => {
+    await render(<Harness initial="Login" />);
+    const email = await screen.findByTestId('email-input');
+    const password = screen.getByTestId('password-input');
+    const focusSpy = jest.fn();
+    // Paper forwards its ref to the native input; spy on focus() of whichever handle the form holds.
+    (password as unknown as { focus?: () => void }).focus = focusSpy;
+    await act(async () => { email.props.onSubmitEditing(); });
+    expect(fetchMock).not.toHaveBeenCalled(); // Next must never submit the form
+    expect(email.props.returnKeyType).toBe('next');
+    expect(password.props.returnKeyType).toBe('done');
+  });
+});

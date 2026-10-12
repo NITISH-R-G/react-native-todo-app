@@ -10,6 +10,7 @@ import { shape, spacing } from '../design/tokens';
 import { useAuth } from '../state/authStore';
 import { useTasks } from '../state/tasksStore';
 import { AppText, ContentSheet, LargeTitle, TonalSurface } from '../ui/primitives';
+import { DeleteAccountDialog } from '../ui/DeleteAccountDialog';
 import { ProgressHeader } from '../ui/ProgressHeader';
 import { SortMenu } from '../ui/FilterBar';
 import { TasksList } from './TasksList';
@@ -101,7 +102,9 @@ export function HomeScreen({ navigation }: NativeStackScreenProps<RootStackParam
 const TabIcon = ({ name, color }: { name?: string; color: string }) => <Icon source={name ?? 'circle'} size={24} color={color} />;
 
 function AccountPane() {
+  const { colors } = useAppTheme();
   const { user, logout } = useAuth();
+  const [deleting, setDeleting] = useState(false);
   const reset = useTasks((s) => s.reset);
   return (
     <View style={styles.account}>
@@ -125,6 +128,17 @@ function AccountPane() {
         testID="logout-button">
         Sign out
       </Button>
+      <Button
+        mode="outlined"
+        icon="delete-forever-outline"
+        onPress={() => setDeleting(true)}
+        style={styles.deleteAccount}
+        contentStyle={styles.logoutContent}
+        textColor={colors.error}
+        testID="delete-account-button">
+        Delete account
+      </Button>
+      <DeleteAccountDialog visible={deleting} onDismiss={() => setDeleting(false)} />
     </View>
   );
 }
@@ -136,5 +150,6 @@ const styles = StyleSheet.create({
   snack: { marginBottom: 88 },
   account: { padding: spacing.xl },
   logout: { marginTop: spacing.xl, borderRadius: shape.full },
+  deleteAccount: { marginTop: spacing.md, borderRadius: shape.full },
   logoutContent: { minHeight: 56 },
 });

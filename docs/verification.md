@@ -1,15 +1,15 @@
 # Verification
 
 ## Current state
-- Milestone: Sprint 2 complete (edit, categories, filters, documented sort, session hardening, a11y pass).
-- Last known good commit: see `git log` (Sprint 2 final commit); previous 6bc14f6.
+- Milestone: Sprint 3 complete (durability, security audit, release configuration, deployment readiness, account deletion). Conditionally ready: see B11.
+- Last known good commit: see `git log` (Sprint 3 final commit); previous baeae04.
 - Implemented: AUTH-001/002/003, TASK-001..006, API-001, DATA-001, SEC-001 (partial), UI-001/002 (partial), FAIL-001 (partial).
-- Verified: AUTH-001/002/003, TASK-001..006, API-001, DATA-001, SORT-001, FILT-001, CAT-001, UI-002, FAIL-001 (evidence B1, B3, B4, B5).
-- Blocking: none. Dev setup: backend `npm run dev:local` (kill any older dev-local process first: two servers on :4000 silently serve stale code), Metro + `adb reverse tcp:8081 tcp:8081`, emulator ref35.
-- Next three actions: (1) release build: https API URL, signing key outside repo, AAB; (2) TalkBack + keyboard traversal run, and a real-device pass; (3) hosting + Atlas + backups + privacy policy for Play.
-- Known unverified claims: TalkBack announcements, rate limiter, CORS/TLS, 5xx screens on device, wavy progress/confetti (not built), release build, production backend, real physical device.
+- Verified: see requirements.md (VERIFIED / PARTIALLY VERIFIED / NOT VERIFIED / BLOCKED).
+- Blocking for Play release: no signing key, no production API URL, no hosted backend, no privacy policy or deletion web URL, applicationId still the template value `com.todoapp`.
+- Next three actions: (1) decide hosting and applicationId, create the upload key yourself, set PRODUCTION_API_URL; (2) deploy the backend and run the smoke flow against the real URL; (3) manual TalkBack pass on a physical device, then signed AAB.
+- Known unverified claims: TalkBack speech and swipe order, physical-device behaviour, real TLS and hosted CORS, Docker image, signal-based shutdown on Linux, signed artifact and AAB, signed-in screens under R8 minification, interrupted-rotation on a device.
 
-## Reference APK audit (2026-10-09) — `Mytasks-release.apk`
+## Reference APK audit (2026-10-09) - `Mytasks-release.apk`
 Evidence kept in `docs/evidence/reference-apk/` (manifest only).
 
 | Command | Outcome |
@@ -138,3 +138,70 @@ Offline support: the list is a read-only cache while offline; creating/editing/d
 ## B6. Android debug build gate (Sprint 2)
 `cd app/android && ./gradlew.bat assembleDebug -PreactNativeArchitectures=x86_64` -> **BUILD SUCCESSFUL in 48s**, exit 0.
 Scope: no native dependency or Android file changed in Sprint 2 (all changes are JS/TS), so Gradle reused its previous outputs; the APK (`app-debug.apk`, 61,139,284 bytes, 2026-10-09 23:39) is the Sprint 1 binary and the new JS is served by Metro in debug. This confirms the project still builds; it does not exercise a bundled (release) JS build, which remains part of REL-001.
+
+## B7. Sprint 3 refresh-token durability (workstream A)
+Root cause (reproduced with a probe test before changing code): rotation is a single atomic update on the server, so the old refresh token is dead the instant the new one is issued. If the response never reaches the app (process killed, secure-storage write failed), the app still holds the old token; on the next launch the server answers 401 and the user must sign in again. Probe: refresh, discard the response, refresh again with the old token -> 401.
+Design chosen (decisions.md D19): per session the server remembers the previous token hash and the rotation time. Within `REFRESH_REUSE_GRACE_SECONDS` (default 30, 0 disables) re-presenting that previous token re-delivers the SAME replacement token (re-signed deterministically from the stored jti and issue time). Nothing is rotated or created by the retry. The previous token is dead once the replacement is redeemed (two generations old), when the grace expires, or when the session is logged out or evicted. Only one previous generation is remembered.
+Client: secure-storage write failure after a successful refresh keeps the new tokens in memory, still completes the user's request, and retries the write after the next healthy request.
+Security reasoning: a thief holding a stale token can obtain the replacement only within the grace window and only if the legitimate client has not yet used it; both then hold the same token and the next rotation invalidates the loser. A stolen LIVE token is always game over, with or without grace. No path accepts a token two generations old, a token of another user, or a token after logout or eviction.
+Tests (backend `api.e2e.test.ts`, client `apiClient.test.ts`): lost response is re-delivered identically and the session keeps rotating; replay after the replacement was used is 401; grace expiry (real clock); grace disabled = strict single use; logout revokes the recoverable previous token; eviction cannot be recovered through grace; cross-user isolation; 4 concurrent redemptions give one rotation and one identical replacement. Mutation checks: dropping the grace time bound failed the expiry test; replacing the atomic update with read-then-write failed the single-rotation test; removing the client persistence retry failed the persistence test.
+Remaining risk (stated accurately): the app must be reopened within the grace window (default 30 seconds) after an interrupted rotation, otherwise the user signs in again. Interrupted rotation was not reproduced on a device (tests simulate the lost response and the failed write). Sessions created before this change have no stored jti and are not recoverable until their next rotation.
+
+## B8. Sprint 3 backend security audit (workstream B)
+Commands run: `cd backend && npx tsc --noEmit` (exit 0); `npx vitest run` (4 files, **84 tests passed**); `npm audit` (0 vulnerabilities, production and all); `npm run build` then `node scripts/smoke-prod.mjs` (compiled server with production-style env against a real mongod: 8 checks passed).
+| # | Finding | Severity | Evidence | Remediation | Remaining risk |
+|---|---|---|---|---|---|
+| S1 | Auth-limiter keyed by IP with no proxy setting: behind a hosting proxy every user would share one bucket | Medium | read of app.ts; test with X-Forwarded-For | `TRUST_PROXY` hop count; tests prove spoof resistance and per-client limits | must be set correctly on the real host |
+| S2 | No limit on the task API | Medium | read of app.ts | per-user limiter (300/min) after authentication; test | tune with real traffic |
+| S3 | MongoDB failure at startup unhandled, error text could expose a connection string | Medium | read of server.ts | `startServer` fails fast with credential-redacted message; tests | none known |
+| S4 | No readiness endpoint, no graceful shutdown | Medium | read of server.ts | `/ready` (503 when the database is gone), `close()` drains then disconnects; tests | signal delivery on Linux not tested (dev machine is Windows) |
+| S5 | Access and refresh secrets could be identical | Low | read of config.ts | startup refuses identical or short secrets; test | none |
+| S6 | No request logging | Low | read of app.ts | JSON lines (method, full path, status, ms), no query, body or headers; test. The smoke run found a bug (mount-relative path logged) and it was fixed | log shipping is a platform job |
+| S7 | Registration reveals whether an email exists (409) | Info | test | accepted: usability; login is uniform and timing-equalized | enumeration possible via register |
+| S8 | Access tokens cannot be revoked for up to their TTL (15 min) after logout or deletion | Info | design | deletion also blocks task creation for a deleted user (test); refresh is revoked immediately | read access until expiry |
+| S9 | `npm audit` for the app reports 21 high findings, all from `braces` (glob DoS) via Metro, the React Native CLI and Jest | Info | `npm audit --json`: single advisory; `braces` is already at the latest 3.0.3 | no fix exists upstream; build tooling only; not in the shipped bundle (the string "braces" in the bundle is Material icon names) | developer machine only |
+| S10 | Template `debug.keystore` is tracked | Info | git ls-files | public RN template debug key, debug builds only; `*.keystore` is gitignored so release keys cannot be committed by accident | none |
+Verified clean: every protected route needs a valid access token (including alg=none and wrong-key tokens); operator-object injection in bodies and queries cannot widen results; oversize and prototype-pollution bodies refused; one error envelope with no stack or driver text; no hash, session record or secret in any response; passwords only as argon2id, refresh tokens only as SHA-256; helmet headers present and `x-powered-by` absent; CORS closed by default and allowlist-only; secrets are not in tracked files or git history (pattern scan). Mutation checks: removing the auth middleware, ignoring trust proxy and opening CORS each failed the suite.
+Not verified (no relevant environment): real TLS, CORS behind the real host, production monitoring, hosted MongoDB behaviour.
+
+## B9. Sprint 3 release configuration and accessibility (workstreams C and D)
+Release configuration findings:
+| # | Finding | Severity | Remediation |
+|---|---|---|---|
+| R1 | Release build type was signed with the DEBUG key (template default) | High | signing now comes only from `TODO_UPLOAD_*` Gradle properties or environment; without them the artifact is unsigned and a warning is printed; never falls back to debug |
+| R2 | Merged manifest requested USE_BIOMETRIC and USE_FINGERPRINT (from react-native-keychain) though the app never uses biometrics | High (Play disclosure) | removed with `tools:node="remove"`; permission list is INTERNET only (verified with aapt2) |
+| R3 | No account deletion although accounts can be created | High (Play) | implemented and verified (PRIV-001) |
+| R4 | Production URL could not be enforced | High | `src/config/productionApiUrl.ts` is empty in source; `scripts/check-release-config.mjs` runs before assembleRelease, bundleRelease and packageRelease and fails on empty, http, local or private hosts, trailing slash or credentials; `-PallowEmptyApiUrl=true` bypasses it for packaging verification only; the app shows a "Not configured" screen for such a build (ConfigGate) |
+| R5 | R8 minification disabled | Medium | enabled with resource shrinking; minified build smoke-tested |
+| R6 | applicationId is the template value `com.todoapp` and cannot change after publishing | Decision | needs your choice before the first upload |
+Release build evidence: see `docs/evidence/app-sprint3/release-artifact.txt`. Artifact: `app/android/app/build/outputs/apk/release/app-release-unsigned.apk`, 36,418,420 bytes, SHA-256 95806C31385E6CB0C2942CA44AE8CAD0362AE382AE38A5E8EB993318414F3D2B. Two clean builds of identical source gave identical SHA-256. An unsigned APK cannot be installed and must not be uploaded.
+Minified smoke run (throwaway build with the reserved host `https://api.invalid`, signed with the public template debug key outside the repository, source reverted afterwards): launched without Metro on the emulator, login screen rendered, typing and the password toggle worked, "Signing in..." state shown, the network error message appeared for the unresolvable host, process stayed alive (`31-release-smoke-offline-error.png`). NOT covered under R8: signed-in screens (task form, date pickers, menus, dialogs), because a real https API was unavailable.
+Accessibility and device checks:
+- Keyboard: IME Next on the email field did not move focus (the keyboard closed). Fixed; verified on device (focus moves to Password, form not submitted). Hardware Tab order on the login form is Email, Sign in, Show password, Create account, Password: reproducible, caused by native view order of Paper's composed inputs; not fixed to avoid a library workaround. PARTIAL.
+- Delete-account dialog: the soft keyboard covered its buttons and error text (Android edge-to-edge does not resize). Fixed by centering the dialog above the keyboard; verified on device.
+- TalkBack: enabled on the emulator, service bound, focus ring observed, Email field focused exactly. Speech output and full swipe order could not be captured through adb. NOT VERIFIED for A11Y-002.
+- Reduced motion: `useReduceMotion` honoured by the progress bar and checkbox spring; verified in Jest only.
+- Earlier evidence still applies (Sprint 2 B5): 48dp targets, labels, 200% font, 360x640dp.
+Manual TalkBack procedure (physical device or emulator, about 10 minutes): (1) Settings > Accessibility > TalkBack on. (2) Open the app; swipe right through the login screen and confirm the order Welcome back, Sign in to pick up, Email, Password, Show password, Sign in, Create an account, and that each control is announced with its name and role. (3) Submit empty: confirm the validation messages are announced. (4) Sign in; on Home confirm Progress is announced as a progress bar with a percentage, each task card announces checkbox state and title, "Mark complete" toggles with a state announcement. (5) Open the delete-task confirmation and the delete-account dialog: confirm the title is announced and the focus stays inside the dialog. (6) Settings > Display > Font size and Display size to maximum: repeat step 4 and check nothing is cut off. (7) Settings > Accessibility > Remove animations: complete a task and check the bar jumps without animating.
+
+## B10. Sprint 3 final gates (frozen source)
+| Command | Result |
+|---|---|
+| `cd backend && npx tsc --noEmit` | exit 0 |
+| `cd backend && npx vitest run --testTimeout=60000 --hookTimeout=300000` | 4 files, **84 passed** |
+| `cd backend && npm run build && node scripts/smoke-prod.mjs` | build ok; 8 of 8 smoke checks passed |
+| `cd app && npx tsc --noEmit` | exit 0 |
+| `cd app && npx eslint App.tsx src __tests__ metro.config.js` | 0 errors, 17 style warnings |
+| `cd app && npx jest --no-cache` | 11 suites, **121 passed** (cold cache) |
+| `cd app/android && ./gradlew.bat assembleDebug -PreactNativeArchitectures=x86_64` | BUILD SUCCESSFUL in 20s (mostly cached; JS is served by Metro in debug) |
+| `cd app/android && ./gradlew.bat assembleRelease -PallowEmptyApiUrl=true -PreactNativeArchitectures=arm64-v8a,x86_64` | BUILD SUCCESSFUL in 1m 16s, unsigned |
+Baseline defects found while re-running Sprint 2 checks: one app test (`useReduceMotion`) exceeded Jest's 5 second default on a cold cache; the default timeout is now 20 seconds. A second test that required the whole App graph exceeded 20 seconds cold; the decision moved into a small `ConfigGate` component that is tested directly. Metro could not start its file watcher while Gradle was compiling native code; Android build folders are now excluded in `metro.config.js`.
+
+## B11. Release status summary
+- Debug build: verified.
+- Release build: unsigned APK builds and runs (minified smoke on emulator); not shippable.
+- Signed artifact: BLOCKED (no key; needs your approval and your own key).
+- Production API configuration: gate verified; the URL itself is empty and needs your hosting decision.
+- Hosted backend: NOT DEPLOYED.
+- Physical device and TalkBack: NOT VERIFIED.
+- Play Store readiness: NOT READY (signing, URL, hosting, privacy policy and deletion web URL, applicationId, Play Console forms, physical-device and TalkBack pass).

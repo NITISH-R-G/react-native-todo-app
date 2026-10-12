@@ -5,20 +5,12 @@ import jwt from "jsonwebtoken";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { createApp } from "../src/app.js";
 import type { Config } from "../src/config.js";
+import { testConfig } from "./helpers.js";
 import { User } from "../src/models/User.js";
 import { Task } from "../src/models/Task.js";
 
 // Real mongod (mongodb-memory-server) + real HTTP parsing via supertest. No mocks of app code.
-const cfg: Config = {
-  port: 0,
-  mongoUri: "",
-  accessSecret: "a".repeat(40),
-  refreshSecret: "b".repeat(40),
-  accessTtl: "15m",
-  refreshTtl: "30d",
-  corsOrigins: [],
-  authRateLimit: null,
-};
+const cfg: Config = testConfig();
 let mongod: MongoMemoryServer;
 let api: ReturnType<typeof request>;
 
@@ -88,14 +80,15 @@ describe("auth (AUTH-001/002/003, SEC-001)", () => {
     expect(wrong.body).toEqual(unknown.body);
   });
 
-  it("rotates refresh tokens: reuse of the old one is rejected", async () => {
+  it("rotates refresh tokens: once the replacement is redeemed the old token is dead", async () => {
     const { refresh } = await signup();
     const first = await api.post("/auth/refresh").send({ refreshToken: refresh });
     expect(first.status).toBe(200);
-    const reuse = await api.post("/auth/refresh").send({ refreshToken: refresh });
-    expect(reuse.status).toBe(401);
     const second = await api.post("/auth/refresh").send({ refreshToken: first.body.refreshToken });
     expect(second.status).toBe(200);
+    // two generations old: never accepted again, even inside the grace window
+    const stale = await api.post("/auth/refresh").send({ refreshToken: refresh });
+    expect(stale.status).toBe(401);
   });
 
   it("rejects an access token used as a refresh token", async () => {
@@ -279,10 +272,11 @@ describe("multiple sessions, atomic rotation and logout (AUTH-003, SEC-001)", ()
     expect((await User.findOne({ email: "a@example.com" }).lean())?.refreshTokens).toHaveLength(2);
   });
 
-  it("the same refresh token redeemed concurrently succeeds exactly once (no duplicate sessions)", async () => {
+  it("the same refresh token redeemed concurrently rotates exactly once; every caller gets the same replacement", async () => {
     const { refresh: rt } = await signup();
     const results = await Promise.all([1, 2, 3, 4].map(() => refresh(rt)));
-    expect(results.map((r) => r.status).sort()).toEqual([200, 401, 401, 401]);
+    expect(results.map((r) => r.status)).toEqual([200, 200, 200, 200]);
+    expect(new Set(results.map((r) => r.body.refreshToken)).size).toBe(1); // one rotation, not four
     expect((await User.findOne({ email: "a@example.com" }).lean())?.refreshTokens).toHaveLength(1);
   });
 
@@ -304,5 +298,70 @@ describe("multiple sessions, atomic rotation and logout (AUTH-003, SEC-001)", ()
     expect((await api.post("/auth/logout").send({ refreshToken: a.refresh })).status).toBe(204);
     expect((await api.post("/auth/logout").send({ refreshToken: "garbage" })).status).toBe(204);
     expect((await api.post("/auth/logout").send({})).status).toBe(400);
+  });
+});
+
+describe("refresh durability window (interrupted persistence)", () => {
+  const refresh = (t: string, a = api) => a.post("/auth/refresh").send({ refreshToken: t });
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  it("response lost after rotation: re-presenting the old token re-delivers the SAME replacement, then works normally", async () => {
+    const { refresh: r0 } = await signup();
+    const lost = await refresh(r0); // the app never receives this response (killed / storage write failed)
+    expect(lost.status).toBe(200);
+    const retry = await refresh(r0); // app restarts holding the persisted old token
+    expect(retry.status).toBe(200);
+    expect(retry.body.refreshToken).toBe(lost.body.refreshToken); // idempotent: nothing new was minted
+    expect((await User.findOne({ email: "a@example.com" }).lean())?.refreshTokens).toHaveLength(1);
+    const next = await refresh(retry.body.refreshToken); // and the recovered session keeps rotating
+    expect(next.status).toBe(200);
+    expect(next.body.refreshToken).not.toBe(retry.body.refreshToken);
+  });
+
+  it("replay after the replacement was used is rejected (a thief cannot ride a stale token)", async () => {
+    const { refresh: r0 } = await signup();
+    const r1 = (await refresh(r0)).body.refreshToken as string;
+    expect((await refresh(r1)).status).toBe(200); // legitimate client moved on
+    expect((await refresh(r0)).status).toBe(401);
+  });
+
+  it("the grace window expires", async () => {
+    const { refresh: r0 } = await signup();
+    expect((await refresh(r0)).status).toBe(200);
+    await sleep(1700);
+    expect((await refresh(r0)).status).toBe(401);
+  });
+
+  it("grace can be disabled (0): behaves as strict single-use", async () => {
+    const strict = request(createApp({ ...cfg, refreshReuseGraceMs: 0 }));
+    const { refresh: r0 } = await signup();
+    expect((await refresh(r0, strict)).status).toBe(200);
+    expect((await refresh(r0, strict)).status).toBe(401);
+  });
+
+  it("logout revokes the session including its recoverable previous token", async () => {
+    const { refresh: r0 } = await signup();
+    const r1 = (await refresh(r0)).body.refreshToken as string;
+    expect((await api.post("/auth/logout").send({ refreshToken: r1 })).status).toBe(204);
+    expect((await refresh(r0)).status).toBe(401); // old token inside grace: still dead after logout
+    expect((await refresh(r1)).status).toBe(401);
+  });
+
+  it("an evicted session cannot be recovered through the grace window", async () => {
+    const first = await signup();
+    const r1 = (await refresh(first.refresh)).body.refreshToken as string;
+    for (let i = 0; i < 5; i++) await api.post("/auth/login").send(creds());
+    expect((await refresh(first.refresh)).status).toBe(401);
+    expect((await refresh(r1)).status).toBe(401);
+  });
+
+  it("a token from one user's session never recovers another user's session", async () => {
+    const a = await signup("a@example.com");
+    const b = await signup("b@example.com");
+    await refresh(a.refresh);
+    const forged = (await refresh(b.refresh)).body.refreshToken as string;
+    expect(forged).toBeTruthy();
+    expect((await refresh(a.refresh)).status).toBe(200); // a's own recovery works
+    expect((await User.findOne({ email: "b@example.com" }).lean())?.refreshTokens).toHaveLength(1);
   });
 });
