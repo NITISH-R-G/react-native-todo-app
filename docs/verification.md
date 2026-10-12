@@ -132,7 +132,7 @@ Defects found by device testing and fixed this sprint (none were caught by Jest)
 7. Medium-priority color contrast (see B4).
 Testing-process lesson recorded: two dev API servers were running (stale code kept answering on :4000); I verified the live server by behaviour (session count after two logins) before trusting any device result.
 
-Known limitation: refresh tokens are single-use. If the app is killed between the server rotating the token and the app saving the new one (e.g. process kill mid-refresh), that session cannot refresh and the user signs in again (shown with the "session expired" notice). Reasonable for security; a grace window would weaken reuse detection.
+Known limitation: refresh tokens are single-use. If the app is killed between the server rotating the token and the app saving the new one (e.g. process kill mid-refresh), that session cannot refresh and the user signs in again (shown with the "session expired" notice). Reasonable for security; a grace window would weaken reuse detection. Superseded in part by B7 (Sprint 3): a short idempotent grace window now recovers a quick reopen; reopening after the window still requires signing in.
 Offline support: the list is a read-only cache while offline; creating/editing/deleting offline and later syncing is NOT implemented.
 
 ## B6. Android debug build gate (Sprint 2)
