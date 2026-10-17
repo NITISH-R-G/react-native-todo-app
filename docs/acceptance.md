@@ -27,8 +27,8 @@ Evidence kinds: **Auto** = automated test, **Emu** = emulator run on this machin
 
 | Artifact | Path | Size | SHA-256 | Notes |
 |---|---|---|---|---|
-| Debug APK | `app/android/app/build/outputs/apk/debug/app-debug.apk` | 90,292,276 bytes | `98DF253F17A73C0B41DE17AF54B65D14CBA7A2B2C71D85AB5A64DE4966C19875` | Built clean from commit `6df1057`, arm64-v8a and x86_64, debug-signed, **needs Metro**, the bundle is not embedded |
-| Unsigned release APK | `app/android/app/build/outputs/apk/release/app-release-unsigned.apk` | 36,418,420 bytes | `95806C31385E6CB0C2942CA44AE8CAD0362AE382AE38A5E8EB993318414F3D2B` | Rebuilt this sprint, hash identical to the Sprint 3 build. Not signed, cannot be installed or uploaded, built with `-PallowEmptyApiUrl=true`. Permissions: INTERNET only (plus the app-private dynamic receiver permission). Not debuggable, bundle embedded, no `10.0.2.2` in the bundle |
+| Debug APK | `app/android/app/build/outputs/apk/debug/app-debug.apk` | 90,292,280 bytes | `C6E6959741B6CE24B5D05ECEBB108DCA44E6A1D8BA8331670363F5A5080223C6` | Rebuilt in Sprint 6 from commit `731c44f` plus the uncommitted identity change that became the Sprint 6 commit. Application ID `com.nitishrg.todo`, label "To-Do", arm64-v8a and x86_64, debug-signed, **needs Metro**. Install and launch were NOT re-run on an emulator with the new ID; only the build and the APK manifest were checked |
+| Unsigned release APK | `app/android/app/build/outputs/apk/release/app-release-unsigned.apk` | 36,418,420 bytes | `95806C31385E6CB0C2942CA44AE8CAD0362AE382AE38A5E8EB993318414F3D2B` | **STALE since Sprint 6**: built with the old ID `com.todoapp` and not rebuilt. Rebuild it (README, "Release builds") before using it for anything. Unsigned, cannot be installed or uploaded |
 
 APK files are build outputs and are git-ignored. Rebuild with the commands in `README.md`.
 
@@ -48,7 +48,7 @@ APK files are build outputs and are git-ignored. Rebuild with the commands in `R
 
 - No hosted backend. A local backend is not reachable by an external evaluator, who must run it themselves or be given a hosted URL.
 - The debug APK cannot be used standalone; it loads JavaScript from Metro.
-- No signed release and no Play readiness claim. `applicationId` is still the template value `com.todoapp`.
+- No signed release and no Play readiness claim. `applicationId` and iOS bundle identifier are now `com.nitishrg.todo` (unverified for store availability; see docs/verification.md B14).
 - TalkBack speech and a physical device were not verified. Hardware Tab order on the login form is non-sequential.
 - One backend `api.e2e` suite-level failure occurred once under heavy machine load with all 84 tests reported passing. Sprint 5 could not reproduce that symptom and no original log exists, so it is UNRESOLVED. What was found instead: under saturating CPU load the suite fails with per-test 5 s timeouts (see docs/verification.md B13), and one lifecycle test had a polling loop longer than its own default timeout, which now has an explicit 30 s limit.
 - During the emulator run the system showed transient "not responding" dialogs for the launcher and System UI because the host was under memory pressure; they were dismissed and did not involve the app.

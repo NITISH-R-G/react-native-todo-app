@@ -1,4 +1,4 @@
-package com.todoapp
+package com.nitishrg.todo
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

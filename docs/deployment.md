@@ -38,5 +38,5 @@ Status: NOT DEPLOYED. No hosting, database, domain or URL exists. Nothing here p
 - Collected: email address, password (stored only as an argon2id hash), tasks the user creates (title, description, dates, priority, category).
 - Not collected: location, contacts, device identifiers, analytics, advertising IDs.
 - Sent over the network: all data goes only to the configured API.
-- Account deletion: NOT IMPLEMENTED. Google Play requires an in-app and web path to request account and data deletion for apps with account creation. This is a release blocker for Play (see requirements REL-002).
+- Account deletion: the in-app path IS implemented and verified (`DELETE /auth/account` with the account password; Account tab, "Delete account"; see requirements PRIV-001, which lists backend tests, Jest tests and a device run with server read-back). It removes the user, all tasks and all sessions. Still missing and still a store requirement: a public web page where a user can request account and data deletion without the app installed (Google Play asks for this link in the Data safety form), and a public privacy policy URL. Neither exists yet. Apple also requires the in-app path (present) and a privacy policy URL.
 - Retention and backup policy: to be decided by you and stated in the privacy policy.

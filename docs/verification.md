@@ -5,7 +5,7 @@
 - Last known good commit: see `git log` (Sprint 3 final commit); previous baeae04.
 - Implemented: AUTH-001/002/003, TASK-001..006, API-001, DATA-001, SEC-001 (partial), UI-001/002 (partial), FAIL-001 (partial).
 - Verified: see requirements.md (VERIFIED / PARTIALLY VERIFIED / NOT VERIFIED / BLOCKED).
-- Blocking for Play release: no signing key, no production API URL, no hosted backend, no privacy policy or deletion web URL, applicationId still the template value `com.todoapp`.
+- Blocking for Play release: no signing key, no production API URL, no hosted backend, no privacy policy or deletion web URL, applicationId changed from the template value `com.todoapp` to the owner-approved `com.nitishrg.todo` in Sprint 6 (store availability not checked).
 - Next three actions: (1) decide hosting and applicationId, create the upload key yourself, set PRODUCTION_API_URL; (2) deploy the backend and run the smoke flow against the real URL; (3) manual TalkBack pass on a physical device, then signed AAB.
 - Known unverified claims: TalkBack speech and swipe order, physical-device behaviour, real TLS and hosted CORS, Docker image, signal-based shutdown on Linux, signed artifact and AAB, signed-in screens under R8 minification, interrupted-rotation on a device.
 
@@ -173,7 +173,7 @@ Release configuration findings:
 | R3 | No account deletion although accounts can be created | High (Play) | implemented and verified (PRIV-001) |
 | R4 | Production URL could not be enforced | High | `src/config/productionApiUrl.ts` is empty in source; `scripts/check-release-config.mjs` runs before assembleRelease, bundleRelease and packageRelease and fails on empty, http, local or private hosts, trailing slash or credentials; `-PallowEmptyApiUrl=true` bypasses it for packaging verification only; the app shows a "Not configured" screen for such a build (ConfigGate) |
 | R5 | R8 minification disabled | Medium | enabled with resource shrinking; minified build smoke-tested |
-| R6 | applicationId is the template value `com.todoapp` and cannot change after publishing | Decision | needs your choice before the first upload |
+| R6 | applicationId was the template value `com.todoapp` and cannot change after publishing | Decision | RESOLVED in Sprint 6: owner approved `com.nitishrg.todo` (see B14); not yet published anywhere |
 Release build evidence: see `docs/evidence/app-sprint3/release-artifact.txt`. Artifact: `app/android/app/build/outputs/apk/release/app-release-unsigned.apk`, 36,418,420 bytes, SHA-256 95806C31385E6CB0C2942CA44AE8CAD0362AE382AE38A5E8EB993318414F3D2B. Two clean builds of identical source gave identical SHA-256. An unsigned APK cannot be installed and must not be uploaded.
 Minified smoke run (throwaway build with the reserved host `https://api.invalid`, signed with the public template debug key outside the repository, source reverted afterwards): launched without Metro on the emulator, login screen rendered, typing and the password toggle worked, "Signing in..." state shown, the network error message appeared for the unresolvable host, process stayed alive (`31-release-smoke-offline-error.png`). NOT covered under R8: signed-in screens (task form, date pickers, menus, dialogs), because a real https API was unavailable.
 Accessibility and device checks:
@@ -241,3 +241,17 @@ A first read of Newest first happened before the re-fetch finished on the slow e
 **Gates (run sequentially, no added load):** backend `tsc --noEmit` exit 0; backend Vitest exit 0, 4 files, 85 of 85 tests; app `tsc --noEmit` exit 0; app ESLint exit 0 with 0 errors and 17 warnings (a run before the change reported 9 `'jest' is not defined` errors in `app/jest.setup.js`, a file unchanged since the first app commit; the Sprint 4 report of 0 errors could not be reproduced for that state, so `/* eslint-env jest */` was added to that file); app Jest exit 0, 11 suites, 121 of 121 tests (Jest also prints "A worker process has failed to exit gracefully", a pre-existing open-handle warning); `git diff --check` exit 0. No Android build was run: no runtime source changed.
 
 **Demo coverage this sprint (emulator, dedicated user):** register, sign in (UI), sign out, create three tasks, complete, edit priority, three sort modes, delete, force-stop, backend restart. Status and category filters were verified in Sprint 4 on the same code. No physical device, TalkBack or hosted backend.
+
+## B14. Sprint 6 app identity migration (2026-10-17)
+
+Owner-approved identity: display name `To-Do`; Android namespace and applicationId `com.nitishrg.todo`; iOS bundle identifier `com.nitishrg.todo`. Previous: `TodoApp`, `com.todoapp`, and the iOS template identifier `org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)`. Availability of the new identifiers on either store was NOT checked, and nothing was published.
+
+Changed: `app/android/app/build.gradle` (namespace, applicationId); Kotlin package declarations and directory (`com/todoapp` moved to `com/nitishrg/todo` with `git mv`); `strings.xml` app_name; `app/app.json` displayName; iOS `Info.plist` CFBundleDisplayName, `LaunchScreen.storyboard` label, and `PRODUCT_BUNDLE_IDENTIFIER` in both build configurations of `project.pbxproj`; README and docs.
+
+Deliberately unchanged: the React component name `TodoApp` (app.json `name`, `MainActivity.getMainComponentName`, iOS `withModuleName`) and the Xcode project, target, scheme and Gradle `rootProject.name`, because they are internal identifiers that are not user visible and are consistent with each other; the manifest uses relative class names so it needed no edit.
+
+Results in this pass: Android debug build FAILED once with `package com.todoapp does not exist` in the generated `ReactNativeApplicationEntryPoint.java`. Cause: ignored caches under `app/android/build/generated/autolinking` (an `autolinking.json` from 2026-10-10 holding the old packageName) and `app/android/app/build/generated/autolinking` that Gradle did not invalidate. Deleting those two ignored directories and rebuilding gave BUILD SUCCESSFUL in 3m 14s. The resulting APK: package `com.nitishrg.todo`, label `To-Do`, launchable activity `com.nitishrg.todo.MainActivity`, targetSdk 36, zero entries under `com/todoapp`, 90,292,280 bytes, SHA-256 `C6E6959741B6CE24B5D05ECEBB108DCA44E6A1D8BA8331670363F5A5080223C6`. Debug-only extra permissions in that APK are `SYSTEM_ALERT_WINDOW` and `ACCESS_LOCAL_NETWORK`; the release manifest was not rebuilt.
+
+App `tsc --noEmit` exit 0; ESLint exit 0 (0 errors, 17 warnings); Jest exit 0 (11 suites, 121 of 121); `git diff --check` exit 0. Backend was not changed and its tests were not re-run in this pass (last run: 85 of 85 during the readiness audit earlier on 2026-10-17, before this change).
+
+Not verified: installing and launching the new debug APK on an emulator, an unsigned release rebuild, and any iOS build (no macOS or Xcode here; the iOS edits were checked only by reading the files). The earlier emulator evidence was produced with the old application ID.

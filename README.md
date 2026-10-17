@@ -15,7 +15,7 @@ Source: https://github.com/NITISH-R-G/react-native-todo-app (`git clone https://
 - Runs locally: the app on an Android emulator or device, the API and MongoDB on your machine.
 - There is **no hosted backend**. An evaluator cannot use this app without running the backend on a machine the phone or emulator can reach. See "Reaching the backend from Android".
 - The debug APK does **not** contain the JavaScript bundle. It loads it from Metro (`npm start`) while you run the app, so it cannot be installed and used on its own.
-- The Android application ID is still the template value `com.todoapp`. This is a local-demo submission, not an independently evaluable or production-ready release.
+- The Android application ID and iOS bundle identifier are `com.nitishrg.todo` and the display name is "To-Do". These were chosen by the owner and have not been checked for availability on Google Play or the App Store, and nothing has been published. This is a local-demo submission, not an independently evaluable or production-ready release. iOS has never been built.
 - No signed release exists and none should be assumed. See `docs/deployment.md` and `docs/verification.md` for what is and is not verified.
 
 ## Requirements
@@ -94,10 +94,10 @@ In a second terminal, with an emulator running or a phone connected (`adb device
 ```bash
 adb reverse tcp:8081 tcp:8081   # lets the app reach Metro
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.todoapp/.MainActivity
+adb shell am start -n com.nitishrg.todo/.MainActivity
 ```
 
-This is the path that was exercised end to end on an emulator. `npm run android` (React Native CLI build, install and launch in one step) is the standard alternative but was not exercised in this verification.
+If an older build with the previous ID `com.todoapp` is installed on your emulator it is a separate app; remove it with `adb uninstall com.todoapp`. This is the path that was exercised end to end on an emulator (with the previous ID; the new ID was build-verified, see docs/verification.md B14). `npm run android` (React Native CLI build, install and launch in one step) is the standard alternative but was not exercised in this verification.
 
 The first Gradle build compiles native code and can take 15 to 35 minutes; later builds take about a minute. On a slow machine the first launch downloads the bundle from Metro for up to a minute or two and the emulator may show a transient "not responding" dialog from another app; choose Wait.
 
@@ -158,6 +158,7 @@ Start the backend, Metro and the app as above, then:
 - "Your session expired" right after scripted logins: the server keeps the 5 newest sessions per account, so many `curl` logins for the same user sign the app out. Use another account for scripts.
 - Red "Unable to load script" screen: Metro is unreachable. Check `npm start`, rerun `adb reverse tcp:8081 tcp:8081`, then relaunch the app.
 - The Android emulator needs a few GB of free RAM; on a starved machine it shows "not responding" dialogs and very slow saves. Close other heavy programs.
+- Gradle error "package com.todoapp does not exist" after pulling the identity change: an ignored cache from an older checkout still holds the old package. Delete `app/android/build/generated/autolinking` and `app/android/app/build/generated/autolinking`, then rebuild. A fresh clone is not affected.
 - Metro cannot start while Gradle is compiling native code on a slow machine: let Gradle finish first.
 
 ## More documentation
