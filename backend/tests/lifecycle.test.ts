@@ -56,5 +56,6 @@ describe("running server", () => {
     expect(status).toBe(503);
     expect((await fetch(`${base}/health`)).status).toBe(200);
     await running.close();
-  });
+    // Budget: mongod start and stop plus up to 20 x 300 ms of polling can exceed the 5 s default on a busy machine.
+  }, 30_000);
 });

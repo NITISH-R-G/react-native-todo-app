@@ -1,3 +1,4 @@
+/* eslint-env jest */
 /* Test doubles for native modules only. App code (stores, API client, screens) always runs for real. */
 
 // In-memory stand-in for the Android Keystore-backed keychain.

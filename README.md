@@ -152,6 +152,9 @@ Start the backend, Metro and the app as above, then:
 - Blank or red screen after install: Metro is not running or `adb reverse tcp:8081 tcp:8081` was not run.
 - Gradle fails with a Java error: `JAVA_HOME` must point to JDK 17 or newer.
 - Behaviour does not match the code: look for a stale backend or Metro process still holding port 4000 or 8081.
+- "Your session expired" right after scripted logins: the server keeps the 5 newest sessions per account, so many `curl` logins for the same user sign the app out. Use another account for scripts.
+- Red "Unable to load script" screen: Metro is unreachable. Check `npm start`, rerun `adb reverse tcp:8081 tcp:8081`, then relaunch the app.
+- The Android emulator needs a few GB of free RAM; on a starved machine it shows "not responding" dialogs and very slow saves. Close other heavy programs.
 - Metro cannot start while Gradle is compiling native code on a slow machine: let Gradle finish first.
 
 ## More documentation

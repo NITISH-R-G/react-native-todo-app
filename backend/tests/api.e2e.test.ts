@@ -250,6 +250,26 @@ describe("categories (tags), filtering and sorting together (CAT-001, FILT-001, 
     expect(await titles("?status=active&sort=deadline")).toEqual(["overdue-low", "overdue-high", "soon-medium", "no-deadline"]);
   });
 
+  it("sort=created is newest first by createdAt and differs from the smart order", async () => {
+    const { token } = await signup("newest@example.com");
+    const make = async (title: string, extra: Record<string, unknown>, createdAt: Date) => {
+      const res = await api.post("/tasks").set(bearer(token)).send({ title, ...extra });
+      expect(res.status).toBe(201);
+      // Set createdAt explicitly so the expected order does not depend on wall-clock spacing between requests.
+      await Task.collection.updateOne({ _id: new mongoose.Types.ObjectId(res.body.task.id) }, { $set: { createdAt } });
+    };
+    const at = (min: number) => new Date(Date.UTC(2030, 0, 1, 12, min));
+    const hours = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
+    // Created oldest to newest, but the smart order ranks them the other way round (overdue high first, no-deadline low last).
+    await make("oldest-overdue-high", { priority: "high", startAt: hours(-48), deadline: hours(-2) }, at(0));
+    await make("middle-soon-medium", { priority: "medium", deadline: hours(3) }, at(10));
+    await make("newest-low-no-deadline", { priority: "low" }, at(20));
+    const titles = async (qs: string) => (await api.get(`/tasks${qs}`).set(bearer(token))).body.tasks.map((t: { title: string }) => t.title);
+    expect(await titles("?sort=smart")).toEqual(["oldest-overdue-high", "middle-soon-medium", "newest-low-no-deadline"]);
+    expect(await titles("?sort=created")).toEqual(["newest-low-no-deadline", "middle-soon-medium", "oldest-overdue-high"]);
+    expect(await titles("?sort=created&status=active")).toEqual(["newest-low-no-deadline", "middle-soon-medium", "oldest-overdue-high"]);
+  });
+
   it("another user cannot change a task's category", async () => {
     const a = await signup("a@example.com");
     const b = await signup("b@example.com");
