@@ -160,5 +160,6 @@ Start the backend, Metro and the app as above, then:
 ## More documentation
 
 - `docs/acceptance.md`: requirement-by-requirement matrix with implementation locations and evidence.
+- `docs/ui-states.md`: audit of the ten UI states (empty, loading, error, offline, slow network, no results, permission, session expired, validation, success) with known gaps.
 - `docs/requirements.md`: requirement IDs and statuses. `docs/verification.md`: commands, results, limitations. `docs/decisions.md`: design decisions. `docs/design-system.md`: UI tokens. `docs/deployment.md`: what hosting would need.
 - `docs/evidence/`: screenshots and API read-backs from emulator runs.

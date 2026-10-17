@@ -1,4 +1,4 @@
-# Acceptance report (Sprint 4)
+# Acceptance report (Sprints 4 and 5)
 
 Sprint 4 source commit under test: `6df1057`; docs and test config were committed in `e612582` with no runtime change. Sprint 5 results are folded into the rows below. Dates are 2026-10-17. Status vocabulary: VERIFIED, PARTIALLY VERIFIED, NOT VERIFIED, BLOCKED.
 
