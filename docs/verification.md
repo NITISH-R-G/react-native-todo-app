@@ -205,3 +205,17 @@ Baseline defects found while re-running Sprint 2 checks: one app test (`useReduc
 - Hosted backend: NOT DEPLOYED.
 - Physical device and TalkBack: NOT VERIFIED.
 - Play Store readiness: NOT READY (signing, URL, hosting, privacy policy and deletion web URL, applicationId, Play Console forms, physical-device and TalkBack pass).
+
+## B12. Sprint 4 finalization (2026-10-17)
+
+Source: commit `6df1057` plus README, `app/jest.warmup.js` and `app/jest.config.js` (this sprint's commit). Full matrix and artifact table: `docs/acceptance.md`. Evidence: `docs/evidence/app-sprint4/`.
+
+- Backend: `tsc --noEmit` exit 0; Vitest 84 of 84 passed in 4 files (several runs, including three back to back under concurrent Jest load).
+- App: `tsc --noEmit` exit 0; ESLint 0 errors, 17 warnings; Jest 121 of 121 passed in 11 suites, including a cold-cache run under concurrent load.
+- Jest warm-up fix: the first `render()` of a test file paid cold module loading inside the test body and sometimes exceeded the timeout (`useReduceMotion` test, reproduced with `--no-cache` and under load). `app/jest.warmup.js` (run via `setupFilesAfterEnv`) loads those modules before the first test. No assertion, test or timeout was weakened; the earlier `testTimeout` of 20000 is unchanged.
+- One unreproduced event: `tests/api.e2e.test.ts` reported a suite-level failure once while all 84 tests passed, during a heavily loaded run. Not reproduced in later runs; cause unknown.
+- Debug APK: clean build, 90,292,276 bytes, SHA-256 `98DF253F17A73C0B41DE17AF54B65D14CBA7A2B2C71D85AB5A64DE4966C19875`, installed on the emulator and run against Metro (`npm start`) and the dev backend.
+- Emulator workflow on that APK: register, create (title, description, date-time, deadline, priority), complete, edit, force-stop restart (session and data kept), smart sort, status and category filters, delete, each with a server read-back; second-user isolation and 401, 400 and 404 responses checked with curl.
+- Unsigned release APK: rebuilt (`assembleRelease -PallowEmptyApiUrl=true`, two ABIs), 36,418,420 bytes, SHA-256 `95806C31385E6CB0C2942CA44AE8CAD0362AE382AE38A5E8EB993318414F3D2B`, identical to the Sprint 3 build. `apksigner verify` reports it unsigned. Not installed or run in this sprint.
+- `git diff --check` clean. Secret scan: no keys or credentials; the only match is a deliberately fake connection string in `backend/tests/lifecycle.test.ts`. `PRODUCTION_API_URL` is still empty. The tracked `app/android/app/debug.keystore` is the public React Native template debug key, not a release key.
+- Not exercised: `npm run android`, physical device, TalkBack speech, hosted backend.

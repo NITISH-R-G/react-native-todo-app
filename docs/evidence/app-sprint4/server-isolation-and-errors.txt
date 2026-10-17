@@ -1,0 +1,8 @@
+bob GET /tasks: {"tasks":[]}
+bob PATCH alice task: 404
+bob DELETE alice task: 404
+no token GET /tasks: 401
+garbage token GET /tasks: 401
+wrong password login: 401
+weak password register: 400
+alice task still intact: GET /tasks/:id as owner returns {"task":{"title":"Overdue chore",...}} (200)
