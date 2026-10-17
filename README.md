@@ -8,11 +8,14 @@ backend/   Node.js + Express + Mongoose + Zod API (JWT access tokens, rotating r
 docs/      requirements, architecture decisions, verification evidence, deployment notes
 ```
 
+Source: https://github.com/NITISH-R-G/react-native-todo-app (`git clone https://github.com/NITISH-R-G/react-native-todo-app.git`, branch `master`). APK files are not in the repository; build them as described below.
+
 ## Status (read this first)
 
 - Runs locally: the app on an Android emulator or device, the API and MongoDB on your machine.
 - There is **no hosted backend**. An evaluator cannot use this app without running the backend on a machine the phone or emulator can reach. See "Reaching the backend from Android".
 - The debug APK does **not** contain the JavaScript bundle. It loads it from Metro (`npm start`) while you run the app, so it cannot be installed and used on its own.
+- The Android application ID is still the template value `com.todoapp`. This is a local-demo submission, not an independently evaluable or production-ready release.
 - No signed release exists and none should be assumed. See `docs/deployment.md` and `docs/verification.md` for what is and is not verified.
 
 ## Requirements
