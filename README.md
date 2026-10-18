@@ -10,6 +10,12 @@ docs/      requirements, architecture decisions, verification evidence, deployme
 
 Source: https://github.com/NITISH-R-G/react-native-todo-app (`git clone https://github.com/NITISH-R-G/react-native-todo-app.git`, branch `master`). APK files are not in the repository; build them as described below.
 
+## Demo video
+
+<a href="https://drive.google.com/file/d/1n9Dj4ZrmuYcUsGglDtTUKbW7YKyqe6sB/view?usp=sharing"><img src="docs/media/demo-poster.jpg" width="240" alt="To-Do demo video: click to watch on Google Drive"></a>
+
+[Watch the 2.5 minute demo on Google Drive](https://drive.google.com/file/d/1n9Dj4ZrmuYcUsGglDtTUKbW7YKyqe6sB/view?usp=sharing). It shows the real app on an Android emulator: sign-up, creating a task with priority and deadline, completing, editing, sorting, filtering, deleting, and the data persisting after a force-stop. The camera moves and captions are added in editing; every app screen is the actual recording. Narration voice: elevenlabs.io (synthetic). The video is hosted on Google Drive and is not stored in this repository.
+
 ## Status (read this first)
 
 - Runs locally: the app on an Android emulator or device, the API and MongoDB on your machine.
