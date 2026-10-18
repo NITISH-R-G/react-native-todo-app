@@ -255,3 +255,11 @@ Results in this pass: Android debug build FAILED once with `package com.todoapp 
 App `tsc --noEmit` exit 0; ESLint exit 0 (0 errors, 17 warnings); Jest exit 0 (11 suites, 121 of 121); `git diff --check` exit 0. Backend was not changed and its tests were not re-run in this pass (last run: 85 of 85 during the readiness audit earlier on 2026-10-17, before this change).
 
 Not verified: installing and launching the new debug APK on an emulator, an unsigned release rebuild, and any iOS build (no macOS or Xcode here; the iOS edits were checked only by reading the files). The earlier emulator evidence was produced with the old application ID.
+
+## B15. Sprint 7 standalone demo APK (2026-10-18)
+
+Built from commit `e7fe195`: a `--dev true` bundle was generated into `android/app/src/main/assets` (6,128,333 bytes) and `assembleDebug` ran (BUILD SUCCESSFUL, 1m 19s). No source file was changed and the temporary generated files were removed afterwards (`git status` clean). APK: 97,765,978 bytes, SHA-256 `04732EE994827405C6101643EE1E99557C5476EAFE161FC5A37DB825F0F9390E`, package `com.nitishrg.todo`, label `To-Do`, `assets/index.android.bundle` present, `apksigner verify` reports a valid v2 debug signature.
+
+Emulator run (Android 35 x86_64 AVD, headless) of that exact file with NO Metro process and `adb reverse --remove-all`: the old `com.todoapp` build was uninstalled, the APK installed, the app rendered the sign-in screen, a new user was registered in the UI, a task with priority High and a deadline was created in the UI, and the task was ticked complete in the UI. Server read-backs through the authenticated API showed the task with priority `high`, a deadline set, and later `completed:true` with a `completedAt` timestamp. The emulator text injection garbled the typed email and one title character (the account became `rreview@example.com` and the title `PPrepare report`); this is an `adb input` artifact on a slow emulator, not an app defect. Edit, sort, filter, delete and restart persistence were not re-run on this APK; they were verified on the same source with the previous identity (B13).
+
+Not verified: a physical device (the app targets `10.0.2.2`, so it cannot reach a backend from a phone), iOS, any hosted backend.

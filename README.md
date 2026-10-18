@@ -14,7 +14,7 @@ Source: https://github.com/NITISH-R-G/react-native-todo-app (`git clone https://
 
 - Runs locally: the app on an Android emulator or device, the API and MongoDB on your machine.
 - There is **no hosted backend**. An evaluator cannot use this app without running the backend on a machine the phone or emulator can reach. See "Reaching the backend from Android".
-- The debug APK does **not** contain the JavaScript bundle. It loads it from Metro (`npm start`) while you run the app, so it cannot be installed and used on its own.
+- The debug APK does **not** contain the JavaScript bundle. It loads it from Metro (`npm start`) while you run the app, so it cannot be installed and used on its own. An emulator-only build with the bundle embedded is described under "Demo APK that runs without Metro".
 - The Android application ID and iOS bundle identifier are `com.nitishrg.todo` and the display name is "To-Do". These were chosen by the owner and have not been checked for availability on Google Play or the App Store, and nothing has been published. This is a local-demo submission, not an independently evaluable or production-ready release. iOS has never been built.
 - No signed release exists and none should be assumed. See `docs/deployment.md` and `docs/verification.md` for what is and is not verified.
 
@@ -121,6 +121,24 @@ cd app/android
 ```
 
 Without `-PreactNativeArchitectures`, Gradle builds four ABIs and takes much longer. Install a built APK with `adb install -r app/android/app/build/outputs/apk/debug/app-debug.apk`, then keep `npm start` and the backend running.
+
+### Demo APK that runs without Metro (Android emulator only)
+
+The standard debug APK needs Metro. For a reviewer who only has an emulator, you can embed a development-mode bundle into a debug build. The bundle must be `--dev true`, because the app only uses the emulator backend address `http://10.0.2.2:4000` when `__DEV__` is true. The result is debug-signed, works on an emulator only (that address is the emulator alias for your computer), and still needs the local backend from section 1.
+
+```bash
+cd app
+mkdir -p android/app/src/main/assets
+npx react-native bundle --platform android --dev true --minify false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res
+cd android && ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a,x86_64     # Windows: gradlew.bat
+```
+
+The bundle step writes untracked files under `android/app/src/main/assets` and `android/app/src/main/res` (drawable folders and `raw`). Delete them after building and check `git status` before committing. Then start the backend, and install and open the APK with no Metro and no `adb reverse`:
+
+```bash
+adb install -r app/android/app/build/outputs/apk/debug/app-debug.apk
+adb shell am start -n com.nitishrg.todo/.MainActivity
+```
 
 ### Release builds (not for submission as is)
 
